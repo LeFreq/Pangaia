@@ -8,9 +8,9 @@ in another set), that set 'freezes', and becomes immutable.  See
 PEP-0218 for a full discussion.
 """
 
-__version__ = "$Revision: 1.4 $"
+__version__ = "$Revision: 1.5 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2001/09/26 03:37:10 $"
+__date__    = "$Date: 2001/09/28 04:30:19 $"
 
 from copy import deepcopy
 
@@ -28,15 +28,19 @@ class Set(dictionary):
 
         dictionary.__init__(self)
         if iterable is not None:
-            for item in iterable:
-                self[item] = None
+            try:
+                self.update(iterable)
+            except AttributeError:
+                for item in iterable:
+                    self[item] = None
         self.hashcode = None
 
     #----------------------------------------
     def __str__(self):
-        """Return sorted set in standard notation."""
-        content = map(str, self.keys())  #XXX
+        """Return sorted set string in standard notation."""
+        content = self.keys()
         content.sort()
+        content = map(str, self.keys())  #XXX
         return '{' + ', '.join(content) + '}'
 
     def __repr__(self):
@@ -51,7 +55,7 @@ class Set(dictionary):
 
     #----------------------------------------
     # Comparisons
-
+    # XXX should not assume dictionary values equal to None
     def __lt__(self, other):
         return self._generic_cmp(other, dictionary.__lt__)
 
@@ -69,6 +73,18 @@ class Set(dictionary):
 
     def __ge__(self, other):
         return self._generic_cmp(other, dictionary.__ge__)
+
+    def __eq__(self, other):
+        #won't compare dictionary values
+        if not isinstance(other, Set) or len(self)!=len(other):
+            return 0
+        for i in self:
+            if i not in other:
+                return 0
+        return 1
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
 
     #----------------------------------------
     def __hash__(self):
@@ -99,13 +115,11 @@ class Set(dictionary):
     #----------------------------------------
     def __copy__(self):
         """Return a shallow copy of the set."""
-        result = Set()
-        for elt in self:
-            result[elt] = None
-        return result
+        return Set(self)
 
     #----------------------------------------
     # Define 'copy' method as readable alias for '__copy__'.
+    # Overrides dictionary.copy()
     copy = __copy__
 
     #----------------------------------------
@@ -138,8 +152,8 @@ class Set(dictionary):
         and another's."""
 
         self._binary_sanity_check(other)
-        result = self.__copy__()
-        result.union_update(other)
+        result = Set(self)
+        result.update(other)
         return result
 
     #----------------------------------------
@@ -148,11 +162,9 @@ class Set(dictionary):
         elements in another set."""
 
         self._binary_sanity_check(other, "updating intersection")
-        old_elements = self.keys()
-        self.clear()
-        for elt in old_elements:
-            if elt in other:
-                self[elt] = None
+        for elt in self.keys():
+            if elt not in other:
+                del self[elt]
         return self
 
     #----------------------------------------
@@ -179,7 +191,11 @@ class Set(dictionary):
         in both."""
 
         self._binary_sanity_check(other, "updating symmetric difference")
-        self = self._raw_sym_difference(self, other)
+        for elt in other:
+            try:
+                del self[elt]
+            except LookupError:
+                self[elt] = None
         return self
 
     #----------------------------------------
@@ -190,8 +206,12 @@ class Set(dictionary):
         set, but not in both."""
 
         self._binary_sanity_check(other)
-        result = Set()
-        result = self._raw_sym_difference(self, other)
+        result = Set(self)
+        for elt in other:
+            try:
+                del result[elt]
+            except LookupError:
+                result[elt] = None
         return result
 
     #----------------------------------------
@@ -199,11 +219,8 @@ class Set(dictionary):
         """Remove all elements of another set from this set."""
 
         self._binary_sanity_check(other, "updating difference")
-        old_elements = self.keys()
-        self.clear()
-        for elt in old_elements:
-            if elt not in other:
-                self[elt] = None
+        for elt in other:
+            self.discard(elt)
         return self
 
     #----------------------------------------
@@ -212,10 +229,9 @@ class Set(dictionary):
         present in another set."""
 
         self._binary_sanity_check(other)
-        result = Set()
-        for elt in self:
-            if elt not in other:
-                result[elt] = None
+        result = Set(self)
+        for elt in other:
+            result.discard(elt)
         return result
 
     #----------------------------------------
@@ -249,8 +265,11 @@ class Set(dictionary):
 
         if self.hashcode is not None:
             raise ValueError, Set._Frozen_Msg % "adding an element"
-        for item in iterable:
-            self[item] = None
+        try:
+            dictionary.update(self, iterable)
+        except AttributeError:
+            for item in iterable:
+                self[item] = None
 
     #----------------------------------------
     def remove(self, item):
@@ -309,19 +328,6 @@ class Set(dictionary):
             raise ValueError, Set._Frozen_Msg % updating_op
         if not isinstance(other, Set):
             raise ValueError, "Binary operation only permitted between sets"
-
-    #----------------------------------------
-    def _raw_sym_difference(self, left, right):
-        """Calculate the symmetric difference between the keys in two
-        dictionaries with don't-care values."""
-        result = {}
-        for elt in left:
-            if elt not in right:
-                result[elt] = None
-        for elt in right:
-            if elt not in left:
-                result[elt] = None
-        return result
 
 #----------------------------------------------------------------------
 # Rudimentary self-tests

@@ -3,9 +3,9 @@
 
 """Graph class."""
 
-__version__ = "$Revision: 1.11 $"
+__version__ = "$Revision: 1.12 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2001/11/04 04:56:08 $"
+__date__    = "$Date: 2001/11/05 01:29:41 $"
 
 #change a lot of these for loops to use faster map() function (see FAQ and QuickReference)
 #remember reduce(lambda x,y: x+y, [1,2,3,4,5]) works for summing all elements...
@@ -115,7 +115,7 @@ class BaseVertex(VertexBaseType):
 
     copy = __copy__
 
-    def __hash__(self): #XXX shouldn't be needed but in 2.2b1 subclassed dicts appear to be hashable!
+    def __hash__(self): #XXX bug in v2.2b1 makes derived dicts hashable.
         raise TypeError("unhashable type")
 
     def validate(self):
@@ -159,8 +159,21 @@ class Vertex(BaseVertex):
                 self._graph.add(t)    #add tail vertices to graph if necessary
                 self[t] = edge_value #appears to be just as fast or faster then checking for existence first (plus keeps standard dict semantics)
 
+    def sum_in(self):
+        """Return sum of all edges that point to vertex."""
+        g, t = self._graph, self._id
+        sum = 0
+        #return reduce(lambda h1, h2: g[h1][t]+g[h2][t], self.in_vertices())  #XXX doesn't work, why?
+        for h in self.in_vertices():
+            sum += g[h][t]
+        return sum
+
+    def sum_out(self):
+        """Return sum of all edges that leave from vertex."""
+        return reduce(lambda t1, t2: t1+t2, self.itervalues())  #use operator.add instead of lambda?
+
     def _fastupdate(self, tails, edge_value=EDGEVALUE):
-        """Add list of tails without checking for existence in graph."""
+        """Add list (or dictionary) of tails without checking for existence in graph."""
         try: #simple tail
             if tails in self:
                 self.collide_edge(tails, edge_value)
@@ -212,7 +225,7 @@ class BaseGraph(GraphBaseType):
             for h in head:
                 if h not in self:
                     self[h] = self.VertexType(self, h)
-                self[h]._fastupdate(tmp) #tail values already in temp, edge_value)
+                self[h]._fastupdate(tmp, edge_value)
         else: #single head addition succeeded, now add tail(s)
             if tail != []:
                 self[head].add(tail, edge_value)  #will also add tail vertices

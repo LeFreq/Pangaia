@@ -3,9 +3,9 @@
 
 """Dictionary with default values."""
 
-__version__ = "$Revision: 1.3 $"
+__version__ = "$Revision: 1.4 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/07/02 21:12:57 $"
+__date__    = "$Date: 2002/07/02 21:47:29 $"
 
 import exceptions
 import copy
@@ -41,9 +41,9 @@ class defdict(dict):
     """
     #XXX may wish to have collision method instead of constantly passing as parameter
     
-    __slots__ = ['default']
+    __slots__ = ['default', 'copydef']
     
-    def __init__(self, init={}, default=None, collision=OVERWRITE):
+    def __init__(self, init={}, default=None, collision=OVERWRITE, copydef=0):
         """Create dictionary and initialize with mapping or sequence
         object, if given.  
         
@@ -87,7 +87,7 @@ class defdict(dict):
         defdict's default value can be modified by writing to .default attribute.
         """
 
-        self.default = default
+        self.default, self.copydef = default, copydef
         if collision == OVERWRITE or isinstance(init, dict) or init==[]:
             try:
                 dict.__init__(self, init)
@@ -167,19 +167,27 @@ class defdict(dict):
         >>> print dd
         {1: 0, 2: 4, 3: 9, 4: 16}
 
-        If value is omitted, will set to a COPY of value specified in default 
-        attribute; i.e. if default value is an empty list, then different keys
-        will have unique empty list objects.  
+        If value is omitted, will set to value specified in default attribute.
+        If copydef attribute is non-zero, then value will be a COPY of this default
+        value; i.e. if self.default==[], then different keys will have unique empty 
+        list objects.  
         
-        >>> dd.default = []
+        >>> dd = defdict(default=[], copydef=1)
         >>> dd.add(1); dd.add(2)
         >>> print dd
-        {1: [], 2: [], 3: 9, 4: 16}
+        {1: [], 2: []}
         >>> dd[1] is dd[2]
         0
         >>> dd[2].append(42)
         >>> print dd
-        {1: [], 2: [42], 3: 9, 4: 16}
+        {1: [], 2: [42]}
+        >>> dd.copydef = 0
+        >>> dd.add(0)
+        >>> dd[0].append(64)
+        >>> dd.default, dd
+        ([64], {0: [64], 1: [], 2: [42]})
+        >>> dd[0] is dd.default #NOTE: default value will now follow dd[0] and vice versa
+        1
         
         NOTE:  using 'dd[key] = value' notation, will always do a hard set
         of value to key in defdict; i.e.  no collision function is called
@@ -187,7 +195,11 @@ class defdict(dict):
         """
         #XXX Update generally should use OVERWRITE, but add should use RETAIN[_IF_DEFAULT] semantics?
         #XXX should add() use *args for argument list (like setdefault()), instead of USE_DEFUALT hack?
-        if value == USE_DEFAULT: value = copy.copy(self.default)
+        if value == USE_DEFAULT:
+            if not self.copydef:
+                value = self.default
+            else:
+                value = copy.copy(self.default)
         if collision == OVERWRITE or key not in self:
             self[key] = value
         else:

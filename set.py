@@ -8,11 +8,20 @@ or as an element in another set), that set 'freezes', and becomes
 immutable.  See PEP-0218 for a full discussion.
 """
 
-__version__ = "$Revision: 1.9 $"
+__version__ = "$Revision: 1.10 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2001/10/04 02:03:21 $"
+__date__    = "$Date: 2001/10/07 18:37:33 $"
 
 from copy import deepcopy
+
+class _ContainsHelper:
+    def __init__(self, hash, object):
+        self.hash = hash
+        self.object = object
+    def __hash__(self):
+        return self.hash
+    def __eq__(self, item):
+        return self.object == item
 
 class Set:
 
@@ -43,7 +52,7 @@ class Set:
         return 'Set(' + `self.data.keys()` + ')'
 
     #----------------------------------------
-    def __iter__(self):   #this method unnecessary??
+    def __iter__(self):
         """Return iterator for enumerating set elements.  This is a
         keys iterator for the underlying dictionary."""
         return self.data.iterkeys()
@@ -54,22 +63,23 @@ class Set:
 
     def __contains__(self, item):
         """Return non-zero if item is an element of set."""
-        print "test"
+        if isinstance(item, Set):
+            return _ContainsHelper(item._compute_hashcode(), item) in self.data
         return item in self.data
 
     #----------------------------------------
     # Comparisons
     def __lt__(self, other):
         """Return true if self is proper subset of other."""
-        if not isinstance(other, Set):
-            return type(self) < type(other)
-        return len(self) < len(other) and self._within(other)
+        if isinstance(other, Set):
+            return len(self) < len(other) and self._within(other)
+        return type(self) < type(other)
 
     def __le__(self, other):
         """Return true if self is subset or equal to other."""
-        if not isinstance(other, Set):
-            return type(self) < type(other)
-        return len(self) <= len(other) and self._within(other)
+        if isinstance(other, Set):
+            return len(self) <= len(other) and self._within(other)
+        return type(self) < type(other)
 
     def __eq__(self, other):
         return isinstance(other, Set) and len(self)==len(other) and self._within(other)
@@ -78,16 +88,16 @@ class Set:
         return not self.__eq__(other)
 
     def __gt__(self, other):
-        if not isinstance(other, Set):
-            return type(self) > type(other)
-        return len(self) > len(other) and other._within(self)
+        if isinstance(other, Set):
+            return len(self) > len(other) and other._within(self)
+        return type(self) > type(other)
 
     def __ge__(self, other):
-        if not isinstance(other, Set):
-            return type(self) > type(other)
-        return len(self) >= len(other) and other._within(self)
+        if isinstance(other, Set):
+            return len(self) >= len(other) and other._within(self)
+        return type(self) > type(other)
 
-    is_subset_of        = __le__
+    is_subset_of        = __le__   #XXX should check that other is Set
     is_proper_subset_of = __lt__
 
     #----------------------------------------
@@ -102,10 +112,7 @@ class Set:
         if self.hashcode is not None:
             return self.hashcode
 
-        # Combine hash codes of set elements to produce set's hash code.
-        self.hashcode = 0
-        for elt in self.data:
-            self.hashcode ^= hash(elt)
+        self.hashcode = self._compute_hashcode()
         return self.hashcode
 
     #----------------------------------------
@@ -327,6 +334,14 @@ class Set:
         if not isinstance(other, Set):
             raise ValueError, "Binary operation only permitted between sets"
 
+    #----------------------------------------
+    def _compute_hashcode(self):
+        """Combine hash codes of set elements to produce set's hash code."""
+        hc = 0
+        for elt in self:
+            hc ^= hash(elt)
+        return hc
+
 #----------------------------------------------------------------------
 # Rudimentary self-tests
 #----------------------------------------------------------------------
@@ -335,31 +350,31 @@ if __name__ == "__main__":
 
     # Empty set
     red = Set()
-    assert `red` == "Set([])", "Empty set: %s" % `red`
+    assert str(red) == "{}", "Empty set: %s" % `red`
 
     # Unit set
     green = Set((0,))
-    assert `green` == "Set([0])", "Unit set: %s" % `green`
+    assert str(green) == "{0}", "Unit set: %s" % `green`
 
     # 3-element set
     blue = Set([0, 1, 2])
-    assert `blue` == "Set([0, 1, 2])", "3-element set: %s" % `blue`
+    assert str(blue) == "{0, 1, 2}", "3-element set: %s" % `blue`
 
     # 2-element set with other values
     black = Set([0, 5])
-    assert `black` == "Set([0, 5])", "2-element set: %s" % `black`
+    assert str(black) == "{0, 5}", "2-element set: %s" % `black`
 
     # All elements from all sets
     white = Set([0, 1, 2, 5])
-    assert `white` == "Set([0, 1, 2, 5])", "4-element set: %s" % `white`
+    assert str(white) == "{0, 1, 2, 5}", "4-element set: %s" % `white`
 
     # Add element to empty set
     red.add(9)
-    assert `red` == "Set([9])", "Add to empty set: %s" % `red`
+    assert str(red) == "{9}", "Add to empty set: %s" % `red`
 
     # Remove element from unit set
     red.remove(9)
-    assert `red` == "Set([])", "Remove from unit set: %s" % `red`
+    assert str(red) == "{}", "Remove from unit set: %s" % `red`
 
     # Remove element from empty set
     try:
@@ -367,6 +382,23 @@ if __name__ == "__main__":
         assert 0, "Remove element from empty set: %s" % `red`
     except LookupError:
         pass
+
+    # Membership of set within set
+    assert white not in black, "Membership in set: %s" % `white`
+
+    # Add set to set
+    try:
+        white.add(black)
+    except ValueError:
+        assert 0, "Containment test froze set: %s" % `white`
+    except:
+        assert 0, "Adding set to set: %s to %s" % (`black`, `white`)
+
+    # Removing set from set
+    try:
+        white.remove(black)
+    except:
+        assert 0, "Removing set from set: %s from %s" % (`black`, `white`)
 
     # Length
     assert len(red) == 0,   "Length of empty set"

@@ -3,15 +3,15 @@
 
 """Network class for flow networks."""
 
-__version__ = "$Revision: 2.7 $"
+__version__ = "$Revision: 2.8 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/08/11 08:22:47 $"
+__date__    = "$Date: 2002/08/12 22:52:23 $"
 
 #Add Network.time to track how many ticks
 
 from __future__ import generators
 
-import random
+import random, operator
 from graph import *
 from bag import *
 
@@ -71,7 +71,7 @@ class Node(bag, VMixin):
                     g.add(s)
                     
     def __iadd__(self, sinks, add_sinks=1):
-        
+        """Add list of sinks to node, adding sinks to graph as necessary."""
         if add_sinks:
             g = self._graph
             for s in sinks:
@@ -125,10 +125,10 @@ class Node(bag, VMixin):
         >>> n = Network()
         >>> n[1][2] = 2
         >>> n.energy[1] = 3
-        >>> n[1](n.energy[1])
+        >>> n[1]._push(n.energy[1], n.ticks)
         1
         
-        Negative energy values make eneryg flow in reverse direction.
+        Negative energy values make energy flow in reverse direction.
         >>> n = Network()
         >>> n[1][2] = 2
         >>> n.energy[2] = -3
@@ -136,26 +136,28 @@ class Node(bag, VMixin):
         >>> print n
         {1: -2 {2: 2}, 2: -1 {}}
         """
-        assert bits #should not be called with 0 bits
-        self.last_tick = tick
-        self.flow.clear()   #clear old flow values
+        assert bits #should not get called with 0 bits
+        paths = self.paths(bits)
+        self.last_tick = tick   #XXX would like to set last_tick and clear flow only if paths!=[]
+        self.flow.clear()       #clear old flow values
+        if paths:                   #if no paths, then no bits to move
+            if bits>=len(paths):    #all paths saturated
+                self.flow += paths
+                bits -= len(paths)
+            else:                   #pick which paths to send bits
+                bit = (bits>=0 and 1 or -1)
+                while bits and paths:
+                    path = paths.pop(int(random.random()*len(paths))) 
+                    self.flow[path] += bit
+                    bits -= bit
+        return bits   #return remaining bits for next round
+
+    def paths(self, bits):
         if bits >= 0:
-            paths = reduce(operator.add, [[tail]*capacity for tail, capacity in self.iteritems()], [])
-            bit = 1
-            assert len(paths) == self.sum_out()
+            return reduce(operator.add, [[tail]*capacity for tail, capacity in self.iteritems()], [])
         else:
             g = self._graph     #this optimization needed in a list comprehension?
-            paths = reduce(operator.add, [[head]*g[head][self._id] for head in self.in_vertices()], [])
-            bit = -1
-            assert len(paths) == self.sum_in()
-        if bits>=len(paths):
-            dict.update(self.flow, self) #all arcs saturated; can do dict.update since we know self.flow=={}
-            return bits - len(paths)
-        while bits and paths:
-            path = paths.pop(int(random.random()*len(paths))) 
-            self.flow[path] += bit
-            bits -= bit
-        return bits   #returns remaining bits for next round
+            return reduce(operator.add, [[head]*g[head][self._id] for head in self.in_vertices()], [])
 
     def _energy_out(self):
         return len(self.flow)
@@ -191,7 +193,8 @@ class Node(bag, VMixin):
         for node, cap in self.iteritems():
             assert node in self._graph, "Non-existant tail %r in node %r" % (node, self._id)
             assert cap > 0, "Invalid capacity at node %r: %r" % (node, cap)
-        
+
+
 def MERGE_NODE(net, node, sinks): 
     net[node].update(sinks)
     try: net[node].energy += sinks.energy
@@ -205,7 +208,8 @@ class Network(Graph):
     def __init__(self, init={}, VertexType=Node):
         if not isinstance(VertexType, type(Node)): raise TypeError, "Invalid vertex type"
         super(Network, self).__init__(init, VertexType)
-        self.energy = imbag()   #stores energy values at each node
+        if isinstance(init, Network): self.energy = imbag(init.energy)
+        else: self.energy = imbag()   #stores energy values at each node
         self.io = imbag()       #energy entering and leaving the network
         self.ticks = 0          #number of network clock ticks since creation
 
@@ -289,6 +293,8 @@ class Network(Graph):
             active_nodes = map(operator.getitem, [self]*len(energy.keys()), energy.iterkeys())
             for node in active_nodes:
                 energy[node._id] = node._push(energy[node._id], self.ticks)
+                #f = (energy[node._id] != start_energy)
+                #if not f: active_nodes.remove(node) #don't update in next loop
                 flow |= (node.flow != {})
             for node in active_nodes:   #have to wait until all flow calculations done to avoid adding energy to unvisited nodes.
                 energy.update(node.flow)
@@ -338,10 +344,11 @@ class Network(Graph):
         for energy in self.energy.itervalues():
             assert energy!=0    #should should be in imbag.validate()
         super(Network, self).validate()
+
         
 def _test():
     import doctest, network
-    return doctest.testmod(network)
+    return doctest.testmod(network, isprivate=lambda i, j: 0)
           
 if __name__ == '__main__': _test()
                

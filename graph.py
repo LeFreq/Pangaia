@@ -3,9 +3,9 @@
 
 """Graph class."""
 
-__version__ = "$Revision: 1.6 $"
+__version__ = "$Revision: 1.7 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2001/10/16 02:56:26 $"
+__date__    = "$Date: 2001/10/17 04:58:00 $"
 
 #change a lot of these for loops to use faster map() function (see FAQ and QuickReference)
 #remember reduce(lambda x,y: x+y, [1,2,3,4,5]) works for summing all elements...
@@ -17,6 +17,7 @@ __date__    = "$Date: 2001/10/16 02:56:26 $"
 #  a separate dictionary (or list/vector?)  for holding actual vertices and indices
 #  a second vector would hold the action energy (for Network type)
 #  but remember:  premature optimization...
+#XXX Use of exceptions for control flow may prevent seeing actual errors.  Perhaps catch exception, plus error string and assert string is as expected
 
 from __future__ import generators
 
@@ -25,21 +26,17 @@ GraphBaseType = dictionary
 EdgeValue = 1
 
 _DEBUG = 1
-_PROFILE = 0
-
-#see graph1.py for collision enhancement
+_PROFILE = 1
 
 # {{{ Vertex
 class Vertex(VertexBaseType):
     """Vertex holds the set of the vertices of its own outward directed edges.
     Edge values are taken to be arbitrary."""
 
-    def __init__(self, graph, tails=[]):
+    def __init__(self, graph):
         """Create a Vertex object in graph, populated with optional tail(s)."""
         VertexBaseType.__init__(self)
         self._graph = graph  #graph to which this vertex belongs
-        if tails != []:
-            self.add(tails)  #XXX slower than necessary since don't need to check for presence of existing tail at init
 
     def add(self, tail):
         """Add the tails to Vertex.  Add tails to graph if neeed."""
@@ -69,7 +66,7 @@ class Vertex(VertexBaseType):
 
     def __copy__(self):
         """Make a copy of the Vertex: tail set."""
-        return self.__class__(self, self.keys())
+        return self.__class__(self, self.keys()) #XXX won't preserve edge values
 
     copy = __copy__
 
@@ -126,14 +123,16 @@ class BaseGraph(GraphBaseType):
         If both parameter are given, then edge additions are made.  Vertices are added as necessary.
         """
 
+        if tail!=[]: self.add(tail)
         try:  #simplest possibility first:  single head addition
             if head not in self:
-                self[head] = Vertex(self, tail)
-            elif tail != []:
-                self[head].add(tail) #will add tail vertices to graph as necessary
+                self[head] = Vertex(self)
+            if tail != []:
+                self[head]._fastupdate(tail)
         except TypeError:  #multiple head addition
             if not isinstance(head, list): raise TypeError, "argument must be hashable type or a list object."
-            temp = Vertex(self, tail)  #will add all tail vertices, if any
+            temp = Vertex(self)  #can't use existing head since it may contain tails already
+            temp._fastupdate(tail)
             for h in head:
                 if h not in self:
                     self[h] = Vertex(self)
@@ -191,7 +190,7 @@ class BaseGraph(GraphBaseType):
 
     out_vertices = GraphBaseType.__getitem__  #XXX returns dictionary, unlike in_vertices() which returns iterator
 
-    def in_vertices(self, vertex):
+    def in_vertices(self, vertex):  #O(n)
         """Return iterator over the vertices where vertex is tail."""
         if vertex not in self:
             raise LookupError, vertex
@@ -246,11 +245,7 @@ class BaseGraph(GraphBaseType):
         #NOTE:  calling this after each insert/remove slows things down considerably!
         for v in self.vertices():
             assert isinstance(self[v], Vertex), "Vertex type not found on " + str(v)
-            assert len(self[v]) <= len(self), "Edge list larger that vertex list on " + str(v)  #this important since select function below will only return valid edges
             self[v].validate()
-        for e in self.select(self.keys(),self.keys()):
-            assert e[0] in self, "Edge %s pointing to non-existent vertex: " % (e, e[0])
-            assert e[1] in self, "Edge %s pointing to non-existent vertex: " % (e, e[1])
 
 # }}} Graph
 
@@ -288,7 +283,7 @@ def test(g, size=100):
 #    generate(g, "random",30)
     print g
     if _PROFILE:
-        print "Profiling (debug off)..."
+        print "Profiling (ignoring debug)..."
         global _DEBUG
         previous = _DEBUG
         _DEBUG = 0

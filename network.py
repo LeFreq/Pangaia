@@ -3,9 +3,9 @@
 
 """Network class for flow networks."""
 
-__version__ = "$Revision: 2.13 $"
+__version__ = "$Revision: 2.14 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2003/06/20 21:41:09 $"
+__date__    = "$Date: 2003/06/21 22:43:31 $"
 
 #Add Network.time to track how many ticks
 #Have Network.add(v), add +1 to v.energy, may need to split function for
@@ -97,7 +97,7 @@ class ReverseEdgeMixin(dict):
             del self._graph[tail].reverse[self._id]  #creates tail vertex so check if tail in graph first
         super(ReverseEdgeMixin, self).__delitem__(tail)
 
-    def clear(self):
+    def clear(self): #XXX should this clear self.reverse also?
         """Removes all tails from self and all references to self._id in tail.reverse
 
         >>> n = Network({1: {1: 1, 2: 4, 3: 9}, 2: {3: 8}})
@@ -277,26 +277,27 @@ class Source(Node):
     """Special node that produces flow to other nodes.
 
     >>> n = Network({1: {2: 2}})
-    >>> n.attach('source', Source)
-    >>> n['source'][1] = 1  #capacity determines how much energy transferred at each tick
-    >>> n['source'][2] = 4
+    >>> n.attach(Source, 'mysource')
+    'mysource'
+    >>> n['mysource'][1] = 1  #capacity determines how much energy transferred at each tick
+    >>> n['mysource'][2] = 4
     >>> n(2)  #2 ticks
     >>> print n
-    {1: 1 {2: 2}, 2: 9 {}, 'source': 5 {1: 1, 2: 4}}
+    {1: 1 {2: 2}, 2: 9 {}, 'mysource': 5 {1: 1, 2: 4}}
 
     If energy is set negative, then negative flow flows back into in-vertices.
-    >>> n['source'].energy = -100   #XXX must set high to offset any positive incoming flow
+    >>> n['mysource'].energy = -100   #XXX must set high to offset any positive incoming flow
     >>> n[2].energy = 0             #XXX this shouldn't be necessary
-    >>> n[2]['source'] = 5
+    >>> n[2]['mysource'] = 5
     >>> n()
     >>> print n
-    {1: 0 {2: 2}, 2: -4 {'source': 5}, 'source': -5 {1: 1, 2: 4}}
+    {1: 0 {2: 2}, 2: -4 {'mysource': 5}, 'mysource': -5 {1: 1, 2: 4}}
     """
 
     __slots__ = []
 
-    def __init__(self, network, id, init={}):
-        super(Source, self).__init__(network, id, init)
+    def __init__(self, *args):
+        super(Source, self).__init__(*args)
         self.energy = self.sum_out() or DEFAULT_FLOW
 
     def _pull(self):
@@ -325,9 +326,10 @@ class FileSource(Source): #cannot multiple inherit from file also
     >>> f = file(fn, 'w')
     >>> f.write('a1 Aq'); f.close()
     >>> n = Network()
-    >>> n.attach(fn, FileSource)
-    >>> print n, type(n[fn])
-    {'/tmp/network.tmp': 1 {}} <class 'network.FileSource'>
+    >>> n.attach(FileSource, open(fn))
+    '/tmp/network.tmp'
+    >>> print n
+    {'/tmp/network.tmp': 1 {}}
     >>> n()
     >>> print n
     {'/tmp/network.tmp': 1 {'A': 1}, 'A': 1 {}}
@@ -350,9 +352,11 @@ class FileSource(Source): #cannot multiple inherit from file also
 
     __slots__ = ['source']
 
-    def __init__(self, network, filename, init={}):
-        super(FileSource, self).__init__(network, filename, init)
-        self.source = open(filename, 'r')
+    def __init__(self, network, source_file, init={}):
+        """Creates a FileSource node with the name of the source file as it's node id."""
+        if not isinstance(source_file, file): raise TypeError("Must be file type")
+        self.source = (not source_file.closed) and source_file or open(source_file.name, 'r')
+        super(FileSource, self).__init__(network, source_file.name, init)
         #perhaps self.energy == self.source.size()
 
     def _pull(self):
@@ -390,23 +394,69 @@ class FileSource(Source): #cannot multiple inherit from file also
         super(FileSource, self)._validate()
 
 
+class KeySource(FileSource):
+    """Source that takes input from keyboard.  Non-blocking code taken from activestate python cookbook.
+
+    >>> n = Network()
+    >>> n.attach(KeySource)
+    '<stdin>'
+    >>> print n
+    {'<stdin>': 1 {}}
+    """
+
+    import sys, tty, select
+
+    __slots__ = ['_save_attr']
+
+    def __init__(self, network, tty_source=sys.stdin, init={}):
+        if not tty_source.isatty(): raise TypeError("KeySource must be be passed a tty.")
+        self._save_attr = KeySource.tty.tcgetattr(tty_source)
+        super(KeySource, self).__init__(network, tty_source, init) #XXX skip FileSource init which opens stdin with error
+
+    def _pull(self):
+        tty, select = KeySource.tty, KeySource.select.select
+        newattr = self._save_attr[:]
+        newattr[3] &= ~tty.ECHO & ~tty.ICANON
+        tty.tcsetattr(self.source, tty.TCSANOW, newattr)
+        if select([self.source], [], [], 0)[0]:  #while select...: self.flow_in[bit]+=1 --read all characters that are ready, not just 1
+            bit_id = self.source.read(1)
+            if bit_id == '~': #special key to indicate "stop this source"
+                self.stop()   #close this source
+                return 0
+            else: bit_id = self.filter(bit_id)
+        else:
+            bit_id = ' '
+        return bit_id
+
+    def _push(self, bits, tick):
+        bits = super(KeySource, self)._push(bits, tick)
+        self.stop()
+        return bits
+
+    def stop(self):
+        KeySource.tty.tcsetattr(self.source, KeySource.tty.TCSADRAIN, self._save_attr)
+
+    __del__ = stop
+
+
 class Sink(Node):
     """Special node type.  Energy leaves network out of here.
 
     >>> n = Network({1: {2: 1}})
     >>> n[1].energy += 1
-    >>> n.attach('sink', Sink)
-    >>> n[2]['sink'] = 2
+    >>> n.attach(Sink, 'mysink')
+    'mysink'
+    >>> n[2]['mysink'] = 2
     >>> n()
     >>> print n
-    {1: 0 {2: 1}, 2: 1 {'sink': 2}, 'sink': 0 {}}
+    {1: 0 {2: 1}, 2: 1 {'mysink': 2}, 'mysink': 0 {}}
     >>> n()
     >>> print n
-    {1: 0 {2: 1}, 2: 0 {'sink': 2}, 'sink': 1 {}}
+    {1: 0 {2: 1}, 2: 0 {'mysink': 2}, 'mysink': 1 {}}
     >>> n()
-    sink: 1
+    mysink: 1
     >>> print n
-    {1: 0 {2: 1}, 2: 0 {'sink': 2}, 'sink': 0 {}}
+    {1: 0 {2: 1}, 2: 0 {'mysink': 2}, 'mysink': 0 {}}
     """
 
     #XXX what if energy is negative?
@@ -548,9 +598,17 @@ class Network(Graph):
     total_energy = property(node_energy, None, None, "Total energy in network.")
     flow = property(_flow, None, None, "Total energy moved on last tick.")
 
-    def attach(self, name, node_type):
-        """Attach a special node type to the network with given name. """
-        self[name] = node_type(self, name)
+    def attach(self, node_type, *args):
+        """Attach a special node type to the network with given name.  Returns id of node.
+
+        >>> n = Network()
+        >>> id = n.attach(KeySource)
+        >>> type(n[id])
+        <class 'network.KeySource'>
+        """
+        node = node_type(self, *args)
+        self[node._id] = node
+        return node._id
 
     def __delitem__(self, key):
         """Remove node and associated energy from network.
@@ -608,6 +666,14 @@ class Network(Graph):
         assert self.ticks >= 0, "Invalid tick value"
         for vid in self.energy:
             assert vid in self, "Energy exists on non-existant node"
+
+
+def tt(net, count=10, stime=1):
+    import time
+    for i in range(count):
+        net()
+        net.display()
+        time.sleep(stime)
 
 
 def _test():

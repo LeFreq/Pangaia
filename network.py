@@ -3,9 +3,9 @@
 
 """Network class for flow networks."""
 
-__version__ = "$Revision: 2.14 $"
+__version__ = "$Revision: 2.15 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2003/06/21 22:43:31 $"
+__date__    = "$Date: 2003/06/22 11:38:15 $"
 
 #Add Network.time to track how many ticks
 #Have Network.add(v), add +1 to v.energy, may need to split function for
@@ -13,7 +13,6 @@ __date__    = "$Date: 2003/06/21 22:43:31 $"
 
 from __future__ import generators
 
-import random, operator
 from graph import *
 from bag import *
 
@@ -25,7 +24,7 @@ NodeBaseType = IntegerBag
 FlowType = IntegerBag
 
 class ReverseEdgeMixin(dict):
-    """Mixin to allow O(1) access to in vertices.  Inherit instead of or before VertexMixin."""
+    """Mixin to allow O(1) access to in_vertices.  Inherit instead of or before VertexMixin."""
     #XXX need doctests, also investigate slots issue (multiple bases have instance layout conflict)
 
     __slots__ = ['reverse']
@@ -41,6 +40,10 @@ class ReverseEdgeMixin(dict):
         >>> n.add(1, [2, 3, 4])
         >>> n.add(2, [3, 2])
         >>> list(n[2].in_vertices())      #XXX arbitrary order
+        [1, 2]
+
+        Can also use:
+        >>> list(n[2].reverse)
         [1, 2]
         """
         return self.reverse.iterkeys()
@@ -75,9 +78,9 @@ class ReverseEdgeMixin(dict):
         >>> n[1], n[2].reverse
         ({2: 3}, {1: 3})
         """
-        if value:
-            if tail != self._id:
-                self._graph[tail].reverse[self._id] = value #creates tail vertex so check value first
+        if value: #XXX value = self._filter(value)?
+            if tail != self._id:  #creates tail vertex so check value first
+                self._graph[tail].reverse[self._id] = value
             else:
                 self.reverse[self._id] = value
         super(ReverseEdgeMixin, self).__setitem__(tail, value)
@@ -106,7 +109,7 @@ class ReverseEdgeMixin(dict):
         ({}, {}, {2: 8})
         """
         g, vid = self._graph, self._id
-        for tail in self.iterkeys(): #XXX 'tail in self' iterates like bag!!
+        for tail in self:
             del g[tail].reverse[vid]
         super(ReverseEdgeMixin, self).clear()
 
@@ -157,7 +160,7 @@ class Node(ReverseEdgeMixin, WeightedEdgeMixin, NodeBaseType): #order needed for
         {1: 0 {2: 3}, 2: 0 {}}
         >>> n[1][2] = "must be int"
         Traceback (most recent call last):
-        TypeError: must use integral type for bag values, not <type 'str'>
+        ValueError: invalid literal for int(): must be int
         """
         super(Node, self).__setitem__(sink, capacity)
         if sink not in self._graph:
@@ -191,24 +194,17 @@ class Node(ReverseEdgeMixin, WeightedEdgeMixin, NodeBaseType): #order needed for
         >>> n.energy
         {1: -1, 3: 2}
         """
-        assert bits #should not get called with 0 bits
-        self.last_tick = tick   #XXX would like to set last_tick and clear flow only if paths!=[]
+        assert bits                 #shouldn't get called with 0 bits
+        self.last_tick = tick       #XXX would like to set last_tick and clear flow only if paths!=[]
         self.flow_out.clear()       #clear old flow values
-        g = self._graph
-        #XXX but in python v2.3b1 -- bit, paths = (bits >= 0) and (1, list(self) or (-1, list(reverse)) #forward/backward flow respectively #XXX semantics of bag.iter may change!
         if bits >= 0:   #forward flow
-            bit, paths = 1, list(self) #XXX semantics of bag.__iter__ may change
+            self.flow_out += self.pick(bits, False) #slower than necessary if bits = self.size()
+            return bits - self.flow_out.size()
         else:           #backward flow
-            bit, paths = -1, list(self.reverse)
-        while bits and paths:   #this could be faster by checking for path saturation (see rev2.8)
-            path = paths.pop(int(random.random()*len(paths)))
-            #change sign of bit transferred if path has negative capacity
-            if bit>0: self.flow_out[path] += (bit*(self[path]>=0 and 1 or -1))      #XXX what about negative weights?
-            else: self.flow_out[path] += (bit*(g[path][self._id] >=0 and 1 or -1))
-            bits -= bit
-        return bits   #return remaining bits for next round
+            self.flow_out -= self.reverse.pick(abs(bits), False) #pick returns negative values if given negative count
+            return bits + self.flow_out.size()
 
-    def flow_in(self):
+    def _flow_in(self):
         """Return bag with incoming flow.
 
         >>> n = Network()
@@ -216,9 +212,14 @@ class Node(ReverseEdgeMixin, WeightedEdgeMixin, NodeBaseType): #order needed for
         >>> n[2][3] = 1
         >>> n.energy.update({1: 3, 3: -2})
         >>> n()
-        >>> n[1].flow_in()
+        >>> n[1].flow_in
         {}
-        >>> n[2].flow_in()
+        >>> n[2].flow_in
+        {1: 2, 3: -1}
+
+        Attempts to change flow_in values are ignored, as this value is calculated dynamically:
+        >>> n[2].flow_in[1] = 99
+        >>> n[2].flow_in
         {1: 2, 3: -1}
         """
         flow_in = FlowType()
@@ -227,13 +228,10 @@ class Node(ReverseEdgeMixin, WeightedEdgeMixin, NodeBaseType): #order needed for
                 flow_in[nid] += node.flow_out[self._id]
         return flow_in
 
-    def _energy_out(self):  return sum(self.flow_out.itervalues())
-    def _energy_in(self): return sum(self.flow_in().itervalues())
     def _energy_read(self): return self._graph.energy[self._id]
     def _energy_write(self, value):  self._graph.energy[self._id] = value
 
-    energy_out = property(_energy_out, None, None, "Energy out of node.")
-    energy_in = property(_energy_in, None, None, "Energy in to node.")
+    flow_in = property(_flow_in, None, None, "Dictionary type containing incoming flow values.")
     energy = property(_energy_read, _energy_write, None, "Energy at node. Slow -- use network.energy[id]")
 
     def clear(self):
@@ -289,9 +287,15 @@ class Source(Node):
     >>> n['mysource'].energy = -100   #XXX must set high to offset any positive incoming flow
     >>> n[2].energy = 0             #XXX this shouldn't be necessary
     >>> n[2]['mysource'] = 5
-    >>> n()
-    >>> print n
+    >>> n();  print n
     {1: 0 {2: 2}, 2: -4 {'mysource': 5}, 'mysource': -5 {1: 1, 2: 4}}
+
+    Negative capacities change sign of the energy:
+    >>> n[2]['mysource'] = -5
+    >>> del n['mysource'][2]
+    >>> n();  print n
+    {1: -2 {2: 2}, 2: 3 {'mysource': -5}, 'mysource': -5 {1: 1}}
+
     """
 
     __slots__ = []
@@ -300,21 +304,15 @@ class Source(Node):
         super(Source, self).__init__(*args)
         self.energy = self.sum_out() or DEFAULT_FLOW
 
-    def _pull(self):
-        return 'As_Much_As_Needed'
-
     def _push(self, bits, tick):
-        assert bits == self.energy
-        self.flow_out.clear()
-        bit_id = self._pull()
-        if bit_id:
-            if bits >= 0:
-                self.flow_out += self #flow will be equal to out vertices' capacity
-                return self.sum_out()
-            else:
-                self.flow_out -= self.reverse #flow equal to in vertices' capacity
-                return -self.sum_in()
-        return 0
+        if bits >= 0:
+            bits = self.size()
+            super(Source, self)._push(bits, tick)
+            return self.flow_out.size()
+        else:
+            bits = -self.reverse.size()
+            super(Source, self)._push(bits, tick)
+            return -self.flow_out.size()
 
 
 class FileSource(Source): #cannot multiple inherit from file also
@@ -389,7 +387,7 @@ class FileSource(Source): #cannot multiple inherit from file also
 
     def _validate(self):
         assert self._id == self.source.name, "Mismatched id: %s != %s" % (self._id, self.source.name)
-        assert len(self.flow_in()) == 0, "Unexpected flow_in: %s" % self.flow_in()
+        assert len(self.flow_in) == 0, "Unexpected flow_in: %s" % self.flow_in
         assert self.in_degree() == 0, "Unexpected in_vertices: %s" % self.reverse
         super(FileSource, self)._validate()
 
@@ -535,7 +533,8 @@ class Network(Graph):
         >>> assert n.energy == {2: 1, 3: 2, 4: 1}
         >>> n.energy[1] += 9
         >>> n(2)
-        >>> assert n.energy == {1: 3, 2: 3, 3: 4, 4: 3}
+        >>> print n.energy
+        {1: 3, 2: 3, 3: 4, 4: 3}
         >>> n.ticks
         4
 
@@ -548,7 +547,7 @@ class Network(Graph):
         """
         assert ticks>=0     #may desire ticks<0 to run in reverse
         for tic in xrange(ticks):  #XXX active_nodes does not include nodes with flow but no energy.
-            active_nodes = [self[nid] for nid in self.energy.iterkeys()] #XXX will add nodes that have no edges and cannot transfer flow
+            active_nodes = [self[nid] for nid in self.energy] #XXX will add nodes that have no edges and cannot transfer flow
             flow = self._push(active_nodes)
             self._pull(active_nodes)
             if flow: self.ticks += 1
@@ -560,7 +559,7 @@ class Network(Graph):
             self.energy[node._id] = node._push(self.energy[node._id], self.ticks)
             #f = (energy[node._id] != start_energy)
             #if not f: active_nodes.remove(node) #don't update in next loop
-            flow += (abs(node.flow_out))
+            flow += (node.flow_out.size())
         return flow
 
     def _pull(self, active_nodes):  #XXX should call node._pull() so node can have info on who gave energy
@@ -591,22 +590,22 @@ class Network(Graph):
         3
         """
         sum = 0
-        for n in self.itervalues():
-            sum += n.energy_out
+        for node in self.itervalues():
+            sum += node.flow_out.size()
         return sum
 
     total_energy = property(node_energy, None, None, "Total energy in network.")
     flow = property(_flow, None, None, "Total energy moved on last tick.")
 
     def attach(self, node_type, *args):
-        """Attach a special node type to the network with given name.  Returns id of node.
+        """Construct node_type with given arguments and add to the network.  Returns id of node.
 
         >>> n = Network()
         >>> id = n.attach(KeySource)
         >>> type(n[id])
         <class 'network.KeySource'>
         """
-        node = node_type(self, *args)
+        node = node_type(self, *args)  #network parameter is automatically passed
         self[node._id] = node
         return node._id
 

@@ -3,9 +3,9 @@
 
 """Graph class."""
 
-__version__ = "$Revision: 1.13 $"
+__version__ = "$Revision: 1.14 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2001/11/06 03:36:08 $"
+__date__    = "$Date: 2002/01/27 00:02:21 $"
 
 #change a lot of these for loops to use faster map() function (see FAQ and QuickReference)
 #remember reduce(lambda x,y: x+y, [1,2,3,4,5]) works for summing all elements...
@@ -21,12 +21,14 @@ __date__    = "$Date: 2001/11/06 03:36:08 $"
 #XXX Use of exceptions for control flow may prevent seeing actual errors.  Perhaps catch exception, plus error string and assert string is as expected
 #XXX Use super() for calling base class methods
 #perhaps Vertex._fastupdate() should be renamed __iadd__()
+#consider sorting keys in __str__ methods.
+#add setoperator mixin class to add set functions to a dict type
 
 from __future__ import generators
 
-EdgeBaseType = int
-VertexBaseType = dictionary
-GraphBaseType = dictionary
+#EdgeBaseType = int
+VertexBaseType = dict
+GraphBaseType = dict
 EDGEVALUE = 1
 
 _DEBUG = 1
@@ -96,10 +98,16 @@ class BaseVertex(VertexBaseType):
         except TypeError:  #must be unhashable: list or dict
             try:  #check if given dictionary with tails, then do super-fast addition of tails
                 #XXX Note: if BaseVertex values are non-simple objects, then update will copy same objects to other vertices.
-                dictionary.update(self, tails)
+                dict.update(self, tails)
             except AttributeError:
                 for t in tails:
                     self[t] = edge_value
+
+    def __eq__(self, other):
+        """Return non-zero if all edges in self are present in other with same weight."""
+        return (type(self) == type(other) and
+                self._id == other._id and
+                dict.__eq__(self, other)) #XXX and self.in_vertices()==other.in_vertices())
 
     def __isub__(self, other):
         """Remove the given tail vertices.  Other can be any iterable object."""
@@ -118,7 +126,7 @@ class BaseVertex(VertexBaseType):
     def __copy__(self):
         """Make a copy of the vertex tail set."""
         result = self.__class__(self._graph, self._id)
-        dictionary.update(result, self) #XXX shallow copy assumes EDGEVALUE is simple type!
+        dict.update(result, self) #XXX shallow copy assumes EDGEVALUE is simple type!
         return result
 
     copy = __copy__
@@ -132,7 +140,6 @@ class BaseVertex(VertexBaseType):
         hash(self._id) #id should be hashable
         for t in self:
             assert t in self._graph, "Non-existant tail %s in vertex %s" % (t, self._id)
-            assert type(self[t]) is type(EDGEVALUE), "Bad value on tail %s in vertex %s" % (t, self._id)
 # }}} BaseVertex
 # {{{ Vertex
 class Vertex(BaseVertex):
@@ -144,6 +151,7 @@ class Vertex(BaseVertex):
     def collide_edge(self, tail, other_value):
         """This functions determines the policy for tail additions
         when tail is already in vertex."""
+        #assert(other_value, int)
         self[tail] += other_value
 
     def add(self, tail, edge_value=EDGEVALUE):
@@ -181,7 +189,7 @@ class Vertex(BaseVertex):
         return reduce(lambda t1, t2: t1+t2, self.itervalues())  #use operator.add instead of lambda?
 
     def _fastupdate(self, tails, edge_value=EDGEVALUE):
-        """Add list (or dictionary) of tails without checking for existence in graph."""
+        """Add list (or dict) of tails without checking for existence in graph."""
         try: #simple tail
             if tails in self:
                 self.collide_edge(tails, edge_value)
@@ -194,6 +202,12 @@ class Vertex(BaseVertex):
                     collide(t, edge_value)
                 else:
                     self[t] = edge_value
+
+    def validate(self):
+        """Assert Vertex invariants."""
+        super(Vertex, self).validate()
+        for t in self:
+            assert type(self[t]) is type(EDGEVALUE), "Bad value on tail %s in vertex %s" % (t, self._id)
 
 # }}} Vertex
 
@@ -213,7 +227,7 @@ class BaseGraph(GraphBaseType):
         if initgraph is not None:
             assert isinstance(initgraph, BaseGraph)
             initgraph.validate()
-            dictionary.update(self, initgraph)  #XXX this will create shared Vertex objects!
+            dict.update(self, initgraph)  #XXX this will create shared Vertex objects!
 
     def add(self, head, tail=[], edge_value=EDGEVALUE):
         """Add the vertices and/or edges.
@@ -288,7 +302,7 @@ class BaseGraph(GraphBaseType):
         if _DEBUG: self.validate()
 
     #alternate syntax for various items
-    out_vertices = GraphBaseType.__getitem__  #XXX returns dictionary, unlike in_vertices() which returns iterator
+    out_vertices = GraphBaseType.__getitem__  #XXX returns dict, unlike in_vertices() which returns iterator
     vertices = GraphBaseType.iterkeys
     order = GraphBaseType.__len__
     #__setitem__ #for some reason is called for self[v] -= [tails] so can't remove from interface
@@ -319,7 +333,7 @@ class BaseGraph(GraphBaseType):
         GraphBaseType.__delitem__(self, head)
 
     def __str__(self):
-        self.validate()
+        if _DEBUG: self.validate()
         return '{' + ', '.join(map(str, self.itervalues())) + '}'
 
     #__repr__ = __str__
@@ -335,10 +349,28 @@ class BaseGraph(GraphBaseType):
 
 def test(g, size=100):
     import time
+    global _DEBUG
+    previous = _DEBUG
+    _DEBUG = 1
 #    from graphsupport2 import *
     #FIXME:  should exercise every function in graph...
     #FIXME:  should try removing non-existent things too
     #FIXME:  should try excercise graph.update()
+##    g.add(0) #add single vertex
+##    g.add(0) #add existing vertex
+##    g.add(0,1) #add single edge
+##    g.add(0,1) #add existing edge
+##    g.add(0,0) #add edge to self
+##    assert str(g) == ""
+##    g2.add([0,1]) #add multiple vertices
+##    g2.add([1,2],[0,1,2,3]) #add multiple edges
+##    g2.add(0, [2,3,4]) #single head, multiple tails
+##    g2.add([0,3,4], 5) #multiple heads, single tail
+##    #{0: {2: 1, 3: 1, 4: 1, 5: 1}, 1: {0: 1, 1: 1, 2: 1, 3: 1}, 2: {0: 1, 1: 1, 2: 1, 3: 1}, 3: {5: 1}, 4: {5: 1}, 5: {}}
+##    assert str(g) == str(g2)
+##    g.discard(0,0)
+##    g.discard(1)
+##    assert str(g) == "{0}"
     g.add(0)
     g.add(0,0)
     g.add(1)
@@ -368,8 +400,6 @@ def test(g, size=100):
     print g
     if _PROFILE:
         print "Profiling (ignoring debug)..."
-        global _DEBUG
-        previous = _DEBUG
         _DEBUG = 0
         for i in [1,2]:
             start=time.clock()
@@ -388,8 +418,8 @@ def test(g, size=100):
             g[0].update(range(1000))
             finish=time.clock()
             print "Update 1000, 1000; pass %i:  %5.2fs" % (i, (finish-start))
-        _DEBUG = previous
         g.clear()
+    _DEBUG = previous #restore debug state
 
 if __name__ == '__main__':
     g=BaseGraph(VertexType=Vertex)

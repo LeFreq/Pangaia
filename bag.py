@@ -3,16 +3,20 @@
 
 """Bag types"""
 
-__version__ = "$Revision: 2.7 $"
+__version__ = "$Revision: 2.8 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2003/06/10 00:36:07 $"
+__date__    = "$Date: 2003/06/17 06:35:42 $"
 
 #bag should have list interface? --should add list methods: append, remove, min/max,  __str__ return list string, etc.
 #   in addition to min/max(), perhaps create most/least() to return the item with the highest/lowest count
-#XXX figure out what should happen: bag[nokey] -= 5, bag[key] -=5
+#XXX figure out what should happen: NaturalBag[nokey] -= 5, NaturalBag[key] -=5
 #XXX checking in setitem takes too much time: create compress function that removes zero-valued items periodically
 #create bag attribute to hold size of bag and calculate only when bag has been written to.
-#perhaps limit bag to either list or dict types for adding/updating.
+#perhaps limit bag to either list or dict types for adding/updating.  --note new dict.fromkeys has no such limit
+#create bag exception class instead of generic TypeError, ValueError to refine what users catch
+#Let __init__ take a check function instead of defining one in class to make it easier for bag refinements w/o resorting to subclassing
+# OR perhaps set __setitem__ to a class static variable, initially set to None, but then set appropriately in the __init__()
+# this way bag could just be a special type of defdict (which would use this "staticmethod" to set value to default if none specified.
 
 from __future__ import generators
 
@@ -21,9 +25,16 @@ if 'sum' not in dir(__builtins__):
     def sum(iterable):
         return reduce(operator.add, iterable, 0)
 
-IntegerType = (int, long)
+_DEBUG = True
 
-class imbag(dict):
+IntegerType = (int, long)
+RealType = (float, int, long)
+NumberType  = (int, float, long, complex)
+
+class RealBag:
+    pass
+
+class IntegerBag(dict):
     """Implements a bag type that allows item counts to be negative."""
 
     __slots__ = []
@@ -31,15 +42,15 @@ class imbag(dict):
     def __init__(self, init={}):
         """Initialize bag with optional contents.
 
-        >>> b = bag()   #creates empty bag
+        >>> b = NaturalBag()   #creates empty bag
         >>> b
         {}
-        >>> print imbag({1: -1, 2: 0, 3: -9})
+        >>> print IntegerBag({1: -1, 2: 0, 3: -9})
         {1: -1, 3: -9}
 
         Can initialize with (key, count) list as in standard dict.
         However, duplicate keys will accumulate counts:
-        >>> print bag([(1, 2), (2, 4), (1, 7)])
+        >>> print NaturalBag([(1, 2), (2, 4), (1, 7)])
         {1: 9, 2: 4}
         """
         if not init or isinstance(init, self.__class__):
@@ -56,30 +67,30 @@ class imbag(dict):
     def fromkeys(cls, iterable, count=1):
         """Class method which creates bag from iterable adding optional count for each item.
 
-        >>> b = bag({'b': 2, 'c': 1, 'a': 3})
-        >>> b2 = bag.fromkeys(['a', 'b', 'c', 'b', 'a', 'a'])
-        >>> b3 = bag.fromkeys("abacab")
+        >>> b = NaturalBag({'b': 2, 'c': 1, 'a': 3})
+        >>> b2 = NaturalBag.fromkeys(['a', 'b', 'c', 'b', 'a', 'a'])
+        >>> b3 = NaturalBag.fromkeys("abacab")
         >>> assert b == b2 == b3
 
-        >>> word_count = bag.fromkeys("how much wood could a wood chuck chuck".split())
+        >>> word_count = NaturalBag.fromkeys("how much wood could a wood chuck chuck".split())
         >>> print word_count
         {'a': 1, 'chuck': 2, 'could': 1, 'how': 1, 'much': 1, 'wood': 2}
 
         An optional count can be specified.  Count added each time item is encountered.
-        >>> print bag.fromkeys("abacab", 5)
+        >>> print NaturalBag.fromkeys("abacab", 5)
         {'a': 15, 'b': 10, 'c': 5}
         """
         b = cls()
-        for key in iterable:
+        for key in iterable: #could just return b.__iadd__(iterable, count)
             b[key] += count  #perhaps slower than necessary but will simplify derived classes that override __setitem__()
         return b
 
     fromkeys = classmethod(fromkeys)
 
     def update(self, items):
-        """Adds contents to bag from other dictionary type.
+        """Adds contents to bag from other mapping type.
 
-        >>> ib = imbag.fromkeys('abc')
+        >>> ib = IntegerBag.fromkeys('abc')
         >>> ib.update({'a': 2, 'b': 1, 'c': 0})
         >>> print ib
         {'a': 3, 'b': 2, 'c': 1}
@@ -97,13 +108,13 @@ class imbag(dict):
         >>> print ib
         {'a': 1, 'c': -1, 'd': 5}
 
-        Updating bag with values that would cause the count to go negative raises ValueError,
+        Updating NaturalBag with values that would cause the count to go negative raises ValueError,
         leaving value unaffected.  Other elements still get updated:
-        >>> b = bag({'a': 1, 'c': 2, 'd': 5})
+        >>> b = NaturalBag({'a': 1, 'c': 2, 'd': 5})
         >>> b.update({'a': -4, 'c': -2, 'd': -2})
         Traceback (most recent call last):
         ...
-        ValueError: bag values must be non-negative: -4
+        ValueError: NaturalBag values must be non-negative: -4
         >>> print b
         {'a': 1, 'd': 3}
 
@@ -112,12 +123,13 @@ class imbag(dict):
         #XXX may be able to improve this by calling dict methods directly and/or using map and operator functions
         #we don't want to abort mid-update, so validate at end of loop
         #XXX should raise exception and return unchanged self if problem encountered!
+        #XXX or use logging.warning() and continue
         bad_value_encountered = False
         for key, count in items.iteritems():
             try:
                 self[key] += count  #may be slower than necessary
             except (TypeError, ValueError):
-                bad_value_encountered, bad_value = True, count
+                bad_value_encountered, bad_value = True, count #XXX figure out how to capture an exception and just re-raise it
         if bad_value_encountered: self._check_value(bad_value)
 
     def pop(self):
@@ -127,26 +139,24 @@ class imbag(dict):
     def discard(self, item):
         """Removes all of the specified item if it exists, otherwise ignored.
 
-        >>> b = bag.fromkeys("abacab")
+        >>> b = NaturalBag.fromkeys("abacab")
         >>> b.discard('b')
         >>> b.discard('d')  #non-existent items ignored
         >>> print b
         {'a': 3, 'c': 1}
         """
-        #XXX what if imbag bag counts are negative?
-        try: del self[item]
+        try: del self[item] #note: this does not call __getitem__
         except KeyError: pass
 
     def setdefault(self, item, count=1):
-        #XXX perhaps remove this on bag, may not even be accurate
+        #XXX perhaps remove this on bag
         self._check_value(count)
-        if count:  return dict.setdefault(self, item, count)
-        else:  return self[item]
+        return count and dict.setdefault(self, item, count)
 
-    def __iadd__(self, iterable):
+    def __iadd__(self, iterable, count=1):  #XXX may fail mid-update...
         """Add items in iterable object to bag.
 
-        >>> b = bag()
+        >>> b = NaturalBag()
         >>> b += [1, 2, 1, 0]
         >>> print b
         {0: 1, 1: 2, 2: 1}
@@ -156,18 +166,18 @@ class imbag(dict):
         {'a': 2, 'b': 1, 'c': 1}
         """
         for key in iterable:
-            self[key] += 1
+            self[key] += count
         return self
 
     def __isub__(self, iterable):
         """Subtract items in iterable object from bag.
 
-        >>> b = bag.fromkeys("abacab")
+        >>> b = NaturalBag.fromkeys("abacab")
         >>> b -= "cab"
         >>> print b
         {'a': 2, 'b': 1}
         """
-        #XXX Should this method be removed? (list doesn't support it)  What should happen if item not in bag?
+        #XXX Should this method be removed? (list doesn't support it)
         #XXX what should happen if item doesn't exist?
         for item in iterable:
             self[item] -= 1
@@ -176,22 +186,22 @@ class imbag(dict):
     def __imul__(self, factor):
         """Multiply bag contents by factor.
 
-        >>> b = bag.fromkeys("abacab")
+        >>> b = NaturalBag.fromkeys("abacab")
         >>> b *= 4
         >>> print b
         {'a': 12, 'b': 8, 'c': 4}
 
-        Negative factors can be used with imbag.
-        >>> ib = imbag(b)
+        Negative factors can be used with IntegerBag.
+        >>> ib = IntegerBag(b)
         >>> ib *= -1
         >>> print ib
         {'a': -12, 'b': -8, 'c': -4}
 
-        Trying that on a standard bag will raise ValueError.
+        Trying that on a NaturalBag will raise ValueError.
         >>> b *= -1
         Traceback (most recent call last):
         ...
-        ValueError: bag values must be non-negative: -1
+        ValueError: NaturalBag values must be non-negative: -1
 
         Zero factors will return empty bag.
         >>> b *= 0
@@ -210,7 +220,7 @@ class imbag(dict):
     def __abs__(self):
         """Returns sum of absolute value of item counts in bag.
 
-        >>> b = imbag.fromkeys("abacab")
+        >>> b = IntegerBag.fromkeys("abacab")
         >>> b['a'] = -4
         >>> abs(b)
         7
@@ -220,23 +230,20 @@ class imbag(dict):
     def __getitem__(self, item):
         """Returns total count for given item, or zero if item not in bag.
 
-        >>> b = bag.fromkeys("abacab")
+        >>> b = NaturalBag.fromkeys("abacab")
         >>> b['a']
         3
         >>> b['d']
         0
         """
-        if item in self: #seems faster than try/except
-            return dict.__getitem__(self, item)
-        else:
-            return 0
+        return self.get(item, 0)
 
     count = __getitem__
 
     def __setitem__(self, item, count):
         """Sets the count for the given item in bag, removing if zero.
 
-        >>> b = bag.fromkeys([1, 2, 3])
+        >>> b = NaturalBag.fromkeys([1, 2, 3])
         >>> b[1] = 3
         >>> b[4] = 2L   #long values okay
         >>> print b
@@ -247,8 +254,8 @@ class imbag(dict):
         >>> print b
         {1: 3, 3: 1, 4: 2L}
 
-        Counts for imbag are allowed to be negative.
-        >>> ib = imbag(b)
+        Counts for IntegerBag are allowed to be negative.
+        >>> ib = IntegerBag(b)
         >>> ib[4] = -2
         >>> ib[5] -= 2
         >>> ib[1] -= 4
@@ -256,11 +263,11 @@ class imbag(dict):
         >>> print ib
         {1: -1, 4: -2, 5: -2}
 
-        Setting negative values on standard bag raises ValueError.
+        Setting negative values on NaturalBag raises ValueError.
         >>> b[4] = -2
         Traceback (most recent call last):
         ...
-        ValueError: bag values must be non-negative: -2
+        ValueError: NaturalBag values must be non-negative: -2
 
         If count is non-integer, TypeError is raised.
         >>> b[1] = "oops"
@@ -268,21 +275,20 @@ class imbag(dict):
         ...
         TypeError: must use integral type for bag values, not <type 'str'>
         """
-        self._check_value(count)
+        self._check_value(count)  #XXX have check_value return it's value to provide greater flexibility in setting dict values (ex. floatbag could convert ints to floats)
         if count:
             dict.__setitem__(self, item, count)
-        else:   #setting to 0 so delete key
-            try:  del self[item]
-            except LookupError:  pass
+        else:   #setting to 0 so discard key
+            self.discard(item)
 
     def __iter__(self):
         """Will iterate through all items in bag individually.
 
-        >>> b = bag.fromkeys("abacab")
+        >>> b = NaturalBag.fromkeys("abacab")
         >>> l = list(b); l.sort()
         >>> l
         ['a', 'a', 'a', 'b', 'b', 'c']
-        >>> b = imbag(b)
+        >>> b = IntegerBag(b)
         >>> b['b'] = -2
         >>> l = list(b); l.sort()
         >>> l
@@ -293,7 +299,7 @@ class imbag(dict):
         >>> l
         ['a', 'b', 'c']
         """
-        #XXX list(b) != imbag(list(b))
+        #XXX list(b) != IntegerBag(list(b))
         for key, count in self.iteritems():
             for i in xrange(abs(count)):
                 yield key
@@ -301,16 +307,16 @@ class imbag(dict):
     def __str__(self):
         """Convert self to string with items in sorted order.
 
-        >>> str(imbag())
+        >>> str(IntegerBag())
         '{}'
-        >>> str(imbag({'b': -2, 'a': 3, 'c': 1, 1: 0}))
+        >>> str(IntegerBag({'b': -2, 'a': 3, 'c': 1, 1: 0}))
         "{'a': 3, 'b': -2, 'c': 1}"
-        >>> str(bag.fromkeys("abacab"))
+        >>> str(NaturalBag.fromkeys("abacab"))
         "{'a': 3, 'b': 2, 'c': 1}"
         """
         #sort by values, largest first? should we sort at all?
+        if _DEBUG: self._validate()
         if not self: return '{}'    #nothing to sort
-        self._validate()
         keys = self.keys()
         keys.sort()
         return '{%s}' % ', '.join(["%r: %r" % (k, self[k]) for k in keys])
@@ -323,12 +329,32 @@ class imbag(dict):
     _check_value = staticmethod(_check_value)
 
     def _validate(self):
+        """Check class invariants.
+
+        >>> b = IntegerBag.fromkeys("abc")
+        >>> dict.__setitem__(b, 'a', 1.0)  #float value illegal
+        >>> b._validate()
+        Traceback (most recent call last):
+        TypeError: must use integral type for bag values, not <type 'float'>
+        >>> b = NaturalBag()
+        >>> dict.__setitem__(b, 'a', 0)    #zero values are normally deleted
+        >>> b
+        {'a': 0}
+        >>> b._validate()
+        Traceback (most recent call last):
+        AssertionError: zero value encountered
+        >>> b = NaturalBag()
+        >>> dict.__setitem__(b, 'a', -1)   #negative values not allowed
+        >>> b._validate()
+        Traceback (most recent call last):
+        ValueError: NaturalBag values must be non-negative: -1
+        """
         for count in self.itervalues():
             self._check_value(count)
-            assert count
+            assert count, "zero value encountered"
 
 
-class bag(imbag):
+class NaturalBag(IntegerBag):
     """Standard bag class.  Allows only non-negative bag counts."""
 
     __slots__ = []
@@ -336,7 +362,7 @@ class bag(imbag):
     def __len__(self):
         """Returns total number of items in bag.
 
-        >>> b = bag.fromkeys("abacab")
+        >>> b = NaturalBag.fromkeys("abacab")
         >>> len(b)
         6
         """
@@ -344,9 +370,9 @@ class bag(imbag):
 
     def _check_value(value):
         """Tests baseclass invariants, plus raises ValueError if value is negative. """
-        imbag._check_value(value)
+        super(NaturalBag, NaturalBag)._check_value(value)
         if value < 0:
-            raise ValueError("bag values must be non-negative: %r" % value)
+            raise ValueError("NaturalBag values must be non-negative: %r" % value)
 
     _check_value = staticmethod(_check_value)
 
@@ -355,16 +381,16 @@ def _test():
     """Miscillaneous tests:
 
     Equality test.  Can compare against dictionary or bag types.
-    >>> bag.fromkeys("abacab") == {'a': 3, 'b': 2, 'c': 1}
+    >>> NaturalBag.fromkeys("abacab") == {'a': 3, 'b': 2, 'c': 1}
     True
-    >>> b, l = bag.fromkeys([1, 2, 1, 3, 1]), [1, 1, 1, 3, 2]
+    >>> b, l = NaturalBag.fromkeys([1, 2, 1, 3, 1]), [1, 1, 1, 3, 2]
     >>> b == l
     False
-    >>> b == bag.fromkeys(l) == imbag.fromkeys(l)
+    >>> b == NaturalBag.fromkeys(l) == IntegerBag.fromkeys(l)
     True
 
     Tests for non-zero:
-    >>> b = bag()
+    >>> b = NaturalBag()
     >>> bool(b)
     False
     >>> b += [0]

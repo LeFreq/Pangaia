@@ -3,9 +3,9 @@
 
 """Dictionary with default values, collision function, and sorted string output."""
 
-__version__ = "$Revision: 2.2 $"
+__version__ = "$Revision: 2.3 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/07/31 22:51:13 $"
+__date__    = "$Date: 2002/07/31 23:06:06 $"
 
 import exceptions
 import copy
@@ -217,11 +217,11 @@ class defdict(dict):
     def __getitem__(self, key):
         """Return value of given key.  If key not in self, then create key with default value.
         
-        >>> dd = defdict(default=0)
-        >>> dd[1]
+        >>> dd = defdict(default=defdict(default=0))
+        >>> dd[1][2]
         0
         >>> print dd
-        {1: 0}
+        {1: {2: 0}}
         """
         try:
             return dict.__getitem__(self, key)
@@ -242,6 +242,8 @@ class defdict(dict):
         5 7
         """
         return self.__class__(self, self.default)
+        
+    __copy__ = copy
         
     def __str__(self, format_string="%r: %r"):
         """Convert self to string with keys in sorted order.

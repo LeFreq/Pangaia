@@ -3,9 +3,9 @@
 
 """Graph class."""
 
-__version__ = "$Revision: 1.14 $"
+__version__ = "$Revision: 1.15 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/01/27 00:02:21 $"
+__date__    = "$Date: 2002/06/22 22:21:01 $"
 
 #change a lot of these for loops to use faster map() function (see FAQ and QuickReference)
 #remember reduce(lambda x,y: x+y, [1,2,3,4,5]) works for summing all elements...
@@ -48,7 +48,7 @@ class BaseVertex(VertexBaseType):
         self._id = id
 
     def add(self, tail, edge_value=EDGEVALUE):
-        """Add the tails to vertex with optional edge value.  Add tails to graph if neeed."""
+        """Add the tails to vertex with optional edge value.  Add tails to graph if needed."""
         try:  #single tail addition
             if tail not in self._graph:  #"in" raises TypeError if non-hashable
                 self._graph.add(tail)    #add tail vertices to graph if necessary
@@ -130,9 +130,6 @@ class BaseVertex(VertexBaseType):
         return result
 
     copy = __copy__
-
-    def __hash__(self): #XXX bug in v2.2b1 makes derived dicts hashable.
-        raise TypeError("unhashable type")
 
     def validate(self):
         """Assert Vertex invariants."""

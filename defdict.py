@@ -3,9 +3,9 @@
 
 """Dictionary with default values."""
 
-__version__ = "$Revision: 1.9 $"
+__version__ = "$Revision: 2.0 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/07/08 04:44:31 $"
+__date__    = "$Date: 2002/07/08 04:45:46 $"
 
 import exceptions
 import copy

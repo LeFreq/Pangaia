@@ -3,9 +3,9 @@
 
 """Network class for flow networks."""
 
-__version__ = "$Revision: 2.15 $"
+__version__ = "$Revision: 2.16 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2003/06/22 11:38:15 $"
+__date__    = "$Date: 2003/06/23 02:09:04 $"
 
 #Add Network.time to track how many ticks
 #Have Network.add(v), add +1 to v.energy, may need to split function for
@@ -198,11 +198,11 @@ class Node(ReverseEdgeMixin, WeightedEdgeMixin, NodeBaseType): #order needed for
         self.last_tick = tick       #XXX would like to set last_tick and clear flow only if paths!=[]
         self.flow_out.clear()       #clear old flow values
         if bits >= 0:   #forward flow
-            self.flow_out += self.pick(bits, False) #slower than necessary if bits = self.size()
-            return bits - self.flow_out.size()
+            self.flow_out += self.pick(bits, False) #slower than necessary if bits = self.size
+            return bits - self.flow_out.size
         else:           #backward flow
             self.flow_out -= self.reverse.pick(abs(bits), False) #pick returns negative values if given negative count
-            return bits + self.flow_out.size()
+            return bits + self.flow_out.size
 
     def _flow_in(self):
         """Return bag with incoming flow.
@@ -306,13 +306,13 @@ class Source(Node):
 
     def _push(self, bits, tick):
         if bits >= 0:
-            bits = self.size()
+            bits = self.size
             super(Source, self)._push(bits, tick)
-            return self.flow_out.size()
+            return self.flow_out.size
         else:
-            bits = -self.reverse.size()
+            bits = -self.reverse.size
             super(Source, self)._push(bits, tick)
-            return -self.flow_out.size()
+            return -self.flow_out.size
 
 
 class FileSource(Source): #cannot multiple inherit from file also
@@ -355,7 +355,7 @@ class FileSource(Source): #cannot multiple inherit from file also
         if not isinstance(source_file, file): raise TypeError("Must be file type")
         self.source = (not source_file.closed) and source_file or open(source_file.name, 'r')
         super(FileSource, self).__init__(network, source_file.name, init)
-        #perhaps self.energy == self.source.size()
+        #perhaps self.energy == self.source.size
 
     def _pull(self):
         bit_id = self.filter(self.source.read(1)) #read one character at a time
@@ -559,7 +559,7 @@ class Network(Graph):
             self.energy[node._id] = node._push(self.energy[node._id], self.ticks)
             #f = (energy[node._id] != start_energy)
             #if not f: active_nodes.remove(node) #don't update in next loop
-            flow += (node.flow_out.size())
+            flow += (node.flow_out.size)
         return flow
 
     def _pull(self, active_nodes):  #XXX should call node._pull() so node can have info on who gave energy
@@ -591,7 +591,7 @@ class Network(Graph):
         """
         sum = 0
         for node in self.itervalues():
-            sum += node.flow_out.size()
+            sum += node.flow_out.size
         return sum
 
     total_energy = property(node_energy, None, None, "Total energy in network.")
@@ -711,7 +711,7 @@ def _test():
     """
 
     import doctest, network
-    return doctest.testmod(network, isprivate=lambda i, j: 0)
+    return doctest.testmod(network, isprivate=lambda *args: 0)
 
 if __name__ == '__main__': _test()
 

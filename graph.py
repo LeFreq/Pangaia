@@ -14,24 +14,37 @@
 #  a second vector would hold the action energy (for Network type)
 #  but remember:  premature optimization...
 #Replace uses of setdefault with DictSet.update, see DictSet notes for further ideas (update() can be pass function parameter (lambda s, o: s|o)
+# consider providing generator-iterators on vertex for in and out vertices.
 
 from __future__ import nested_scopes
 
 import dictset
 
 VertexBaseType = dictionary
-BaseType = dictset.DictSet
-Edge = int
+BaseType = dictionary
+EdgeValue = 1
+
 _DEBUG = 1
+_PROFILE = 1
 
-
+#see graph1.py for collision enhancement
 class Vertex(VertexBaseType):
 
+    def __init__(self, graph, tails=[]):
+        """Create a Vertex object in graph, populated with optional tail(s)."""
+        #Note: mandatory parameter means base's copy operations won't work: e.g. Vertex|Vertex
+        VertexBaseType.__init__(self)
+        self._graph = graph  #graph to which this vertex belongs
+        if tails != []:
+            self.add(tails)  #XXX slower than necessary since don't need to check for presence of existing tail at init
+
     def add(self, tail):
-        """Add the tails to Vertex.  Assumes all tails already exist."""
+        """Add the tails to Vertex.  Add tails to graph as necessary."""
+        assert tail!=[]
         try:  #single tail addition
             if tail not in self:
-                self[tail] = Edge(1)
+                self._graph.add(tail)  #add tail vertices before tail edges
+                self[tail] = EdgeValue
         except TypeError:  #multiple tail addition
             self.update(tail)
 
@@ -39,24 +52,51 @@ class Vertex(VertexBaseType):
         """Removes tail if present, otherwise does nothing."""
         try:
             del self[tail]
-        except KeyError:
-            pass
+        except KeyError:  return
+        except TypeError: #must have been given a tail list
+            if not isinstance(tail, list): raise TypeError, "argument must be hashable type or a list object."
+            if self.out_degree():  #no need to continue if self is empty
+                for t in tail:
+                    try:  #faster than if t in self: del self[t]
+                        del self[t]
+                    except KeyError: pass
 
     def update(self, tails):
-        """Add list of tails."""
+        """Add list of tails from iterable object to Vertex.  Adds tails to graph."""
+        #self._graph.add(tails)  #add tail vertices before tail edges
         for t in tails:
             if t not in self:
-                self[t] = Edge(1)
+                self._graph.add(t)
+                self[t] = EdgeValue
+
+    def out_vertices(self):
+        return self.keys()
+
+    out_degree = VertexBaseType.__len__
+
+    def _fastupdate(self, tails):
+        """Add list of tails without checking for existence in graph."""
+        if not isinstance(tails, list): tails = [tails]
+        for t in tails:
+            if t not in self:
+                self[t] = EdgeValue
 
     def __isub__(self, other):
-        """Remove the tail vertices.  Other can be any iterable object."""
-        for tail in other:
-            self.discard(tail)
+        """Remove the given tail vertices.  Other can be any iterable object."""
+        if len(self):
+            for tail in other:  #XXX inefficient if self is near empty
+                self.discard(tail)
         return self
 
     def __str__(self):
+        if _DEBUG: self.validate()
         return "{%s}" % `self.keys()`[1:-1]
 
+    def validate(self):
+        assert isinstance(self._graph, BaseGraph)
+        for t in self:
+            assert t in self._graph, "Non-existant tail %s in vertex %s" % (t, self._id)
+            assert self[t] == EdgeValue, "Bad value on tail %s in vertex %s" % (t, self._id)
 
 # {{{ Graph class
 class BaseGraph(BaseType):
@@ -71,24 +111,19 @@ class BaseGraph(BaseType):
             dictionary.update(self, initgraph)
 
     def add(self, head, tail=[]):
-        try:    #most common operation first:  single vertex addition  ##FIXME: results in code duplication--is this really
-            if head not in self:    #will raise exception if given a list (or other unhashable type!)
-                self[head] = Vertex()
-            try:    #head added, now check to see if tail given, next most common operation second: single edge addition
-                if tail not in self:
-                    self[tail] = Vertex()
-                self[head].add(tail)      #will add actual object reference as tail
-            except TypeError:   #must of been given a tail list (or no tail specified)
-                if not isinstance(tail, list): raise TypeError, "argument must be hashable type or a list object."
-                map(self.setdefault, tail)  #add all tail vertices first
-                self[head].update(tail)
-        except TypeError:   #must of been given a head list
+        try:
+            if head not in self:
+                self[head] = Vertex(self, tail)
+            elif tail != []:
+                self[head].add(tail) #will add tail vertices to graph as necessary
+        except TypeError:
             if not isinstance(head, list): raise TypeError, "argument must be hashable type or a list object."
-            if not isinstance(tail, list):  tail = [tail]
-            map(self.setdefault, head+tail) #add all vertices first #FIXME: would intersection of head+tail help much?, also: setdefault mightl raise TypeError
-            if tail!=[]:    #perhaps unuseful test, may speedup things in default case though (tail=[])
-                for h in head:  #append tail list to each head
-                    self[h].update(tail)
+            temp = Vertex(self, tail)  #will add all tail vertices, if any
+            for h in head:
+                if h not in self:
+                    self[h] = Vertex(self)
+                dictionary.update(self[h], temp) #XXX if Edge values are non-simple objects, then update will copy same objects to other vertices.
+            del temp
         if _DEBUG: self.validate()
 
     def count(self, head, tail=[]):
@@ -119,17 +154,16 @@ class BaseGraph(BaseType):
                 for h in head:
                     if h in self:
                         self[h].clear()
-                        BaseType.__delitem__(self, h) #don't duplicate effort
+                        BaseType.__delitem__(self, h) #don't duplicate effort (will discard in_vertices below)
                     #else head -= h #for faster tail removal in next loop
                 for h in self:   #visit remaining vertices and remove occurances of head items in edge lists
-                    self[h] -= head     #set subtraction
+                    self[h].discard(head)
             except LookupError: pass   #do nothing if given non-existent vertex
         else:   #edge deletions
             if not isinstance(head, list): head = [head]
-            if not isinstance(tail, list): tail = [tail]
             for h in head:
                 if h in self:
-                    self[h] -= tail  #set subtraction
+                    self[h].discard(tail)
         if _DEBUG: self.validate()
 
     out_vertices = BaseType.__getitem__
@@ -142,7 +176,7 @@ class BaseGraph(BaseType):
     def setdefault(self, vertex, failobj=None): #don't put Vertex() here as default parameter since then only evaluated once-->all vertices get same Set!
         assert failobj is None
         if vertex not in self:
-            self[vertex] = Vertex()
+            self[vertex] = Vertex(self)
         return self[vertex]
 
     def popitem(self):
@@ -187,10 +221,9 @@ class BaseGraph(BaseType):
         """Check graph invariants."""
         #NOTE:  calling this after each insert/remove slows things down considerably!
         for v in self.vertices():
-            assert isinstance(self[v], Vertex), "Set type not found for edge list on " + str(v)
+            assert isinstance(self[v], Vertex), "Vertex type not found on " + str(v)
             assert len(self[v]) <= len(self), "Edge list larger that vertex list on " + str(v)  #this important since select function below will only return valid edges
-            for t in self[v]:
-                assert t in self, "Non-existant tail %s in vertex %s" % (t, v)
+            self[v].validate()
         for e in self.select(self.keys(),self.keys()):
             assert e[0] in self, "Edge %s pointing to non-existent vertex: " % (e, e[0])
             assert e[1] in self, "Edge %s pointing to non-existent vertex: " % (e, e[1])
@@ -230,16 +263,30 @@ def test(g, size=100):
 #    generate(g, "random",30)
 #    generate(g, "random",30)
     print g
-    print "Profiling..."
-    for i in [1,2]:
-        start=time.clock()
-        g.add(range(1000),range(1000))
-        finish=time.clock()
-        print "Add 1000, 1000; pass %i: %5.2fs" %  (i, (finish-start))
-    start=time.clock()
-    g.discard(range(1000), range(1000))
-    finish=time.clock()
-    print "Discard 1000; pass %i:  %5.2fs" % (i, (finish-start))
+    if _PROFILE:
+        print "Profiling (debug off)..."
+        global _DEBUG
+        previous = _DEBUG
+        _DEBUG = 0
+        for i in [1,2]:
+            start=time.clock()
+            g.add(range(1000),range(1000))
+            finish=time.clock()
+            print "Add 1000, 1000; pass %i: %5.2fs" %  (i, (finish-start))
+        for i in [1,2]:
+            start=time.clock()
+            g.discard(range(1000), range(1000))
+            finish=time.clock()
+            print "Discard 1000, 1000; pass %i:  %5.2fs" % (i, (finish-start))
+        g.clear()
+        g.add(0)
+        for i in [1,2]:
+            start=time.clock()
+            g[0].update(range(1000))
+            finish=time.clock()
+            print "Update 1000, 1000; pass %i:  %5.2fs" % (i, (finish-start))
+        _DEBUG = previous
+        g.clear()
 
 if __name__ == '__main__':
     g=BaseGraph()

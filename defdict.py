@@ -1,3 +1,12 @@
+#!/usr/bin/env python
+# Mark Janssen, <average@mit.edu> July 1, 2002
+
+"""Dictionary with default values."""
+
+__version__ = "$Revision: 1.2 $"
+__author__  = "$Author: average $"
+__date__    = "$Date: 2002/07/01 22:25:56 $"
+
 import exceptions
 import operator
 import copy

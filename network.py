@@ -3,9 +3,9 @@
 
 """Network class for flow networks."""
 
-__version__ = "$Revision: 2.5 $"
+__version__ = "$Revision: 2.6 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/08/08 22:15:58 $"
+__date__    = "$Date: 2002/08/09 21:58:51 $"
 
 #Add Network.time to track how many ticks
 
@@ -55,26 +55,25 @@ class Node(WVertex):
         """
         super(Node, self).update(sinks, capacity, collision)
     
-    def __call__(self, bits):
-        """Advance node 1 time increment. Returns amount of energy transferred.
+    def _push(self, bits):
+        """Advance node 1 time increment. Returns amount of energy remaining.
         Should not be run except through Network().
         >>> n = Network()
         >>> n[1][2] = 2
         >>> n.energy[1] = 3
         >>> n[1](n.energy[1])
-        2
+        1
         
         Negative energy values make eneryg flow in reverse direction.
         >>> n = Network()
         >>> n[1][2] = 2
-        >>> n[2].energy = -3
+        >>> n.energy[2] = -3
         >>> n()
         >>> print n
         {1: -2 {2: 2}, 2: -1 {}}
         """
         assert bits #should not be called with 0 bits
-        paths = [] #self.flow.clear()
-        startbits = bits
+        self.flow.clear()   #clear old flow values
         if bits >= 0:
             paths = reduce(operator.add, [[tail]*capacity for tail, capacity in self.iteritems()], [])
             bit = 1
@@ -84,13 +83,14 @@ class Node(WVertex):
             paths = reduce(operator.add, [[head]*g[head][self._id] for head in self.in_vertices()], [])
             bit = -1
             assert len(paths) == self.sum_in()
+        if bits>=len(paths):
+            self.flow.update(self)  #all arcs saturated
+            return bits - len(paths)
         while bits and paths:
-            path = random.choice(paths)     #faster than doing one shuffle at the beginning (v2.2)
+            path = paths.pop(int(random.random()*len(paths))) 
             self.flow[path] += bit
             bits -= bit
-            paths.remove(path)
-        #self.energy = bits     #give back left-over energy, if any, for next round
-        return startbits-bits   #bit flow
+        return bits   #returns remaining bits for next round
 
     def _energy_out(self):
         return len(self.flow)
@@ -142,8 +142,8 @@ class Network(Graph):
         """
         super(Network, self).add(head, tail, capacity, edge_collision)
                     
-    def __call__(self, count=1):
-        """Advance network count time increments, defaults to 1.
+    def __call__(self, ticks=1):
+        """Advance network for specified ticks, defaults to 1.
         >>> n = Network()
         >>> n.add(1, 2, 2)
         >>> n.add(2, 3)
@@ -156,24 +156,27 @@ class Network(Graph):
         >>> n.energy[1] += 4
         >>> n(2)
         >>> assert n.energy == {1: 2, 2: 5, 3: 1}
+        >>> n.ticks
+        4
+
+        Also aborts once flow reaches zero.
         >>> n.discard(3, 1)
-        >>> n.add(2, 1)
         >>> n(100)
         >>> assert n.energy == {3: 8}
+        >>> n.ticks
+        11
         """
-        assert count>=0     #may desire count<0 to run in reverse
+        assert ticks>=0     #may desire ticks<0 to run in reverse
         energy = self.energy
-        for tic in range(count):
-            self.ticks += 1
-            flow = 1
+        for tic in xrange(ticks):
+            flow = 0
             active_nodes = map(operator.getitem, [self]*len(energy.keys()), energy.iterkeys())
             for node in active_nodes:
-                node.flow.clear()
-                energy[node._id] -= node(energy[node._id])
-                #energy[node._id] -= flow
-            for node in active_nodes:
+                energy[node._id] = node._push(energy[node._id])
+                flow |= (node.flow != {})
                 energy.update(node.flow)
-            if flow == 0: break
+            if flow: self.ticks += 1
+            else: break
 
     def node_energy(self):
         """Returns total amount of energy in nodes.

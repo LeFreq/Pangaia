@@ -8,9 +8,9 @@ in another set), that set 'freezes', and becomes immutable.  See
 PEP-0218 for a full discussion.
 """
 
-__version__ = "$Revision: 1.5 $"
+__version__ = "$Revision: 1.6 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2001/09/28 04:30:19 $"
+__date__    = "$Date: 2001/09/30 22:37:34 $"
 
 from copy import deepcopy
 
@@ -55,36 +55,38 @@ class Set(dictionary):
 
     #----------------------------------------
     # Comparisons
-    # XXX should not assume dictionary values equal to None
     def __lt__(self, other):
-        return self._generic_cmp(other, dictionary.__lt__)
+        """Return true if self is proper subset of other."""
+        if not isinstance(other, Set):
+            raise ValueError, "Sets can only be compared to sets"
+        return len(self) < len(other) and self._within(other)
 
     def __le__(self, other):
-        return self._generic_cmp(other, dictionary.__le__)
+        """Return true if self is subset or equal to other."""
+        if not isinstance(other, Set):
+            raise ValueError, "Sets can only be compared to sets"
+        return len(self) <= len(other) and self._within(other)
 
     def __eq__(self, other):
-        return self._generic_cmp(other, dictionary.__eq__)
+        if not isinstance(other, Set):
+            raise ValueError, "Sets can only be compared to sets"
+        return len(self)==len(other) and self._within(other)
 
-    def __ne__(self, other):
-        return self._generic_cmp(other, dictionary.__ne__)
-
-    def __gt__(self, other):
-        return self._generic_cmp(other, dictionary.__gt__)
-
-    def __ge__(self, other):
-        return self._generic_cmp(other, dictionary.__ge__)
-
-    def __eq__(self, other):
-        #won't compare dictionary values
-        if not isinstance(other, Set) or len(self)!=len(other):
-            return 0
-        for i in self:
-            if i not in other:
-                return 0
-        return 1
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    def __gt__(self, other):
+        if not isinstance(other, Set):
+            raise ValueError, "Sets can only be compared to sets"
+        return len(self) > len(other) and other._within(self)
+
+    def __ge__(self, other):
+        if not isinstance(other, Set):
+            raise ValueError, "Sets can only be compared to sets"
+        return len(self) >= len(other) and other._within(self)
+
+    is_subset_of        = __le__
+    is_proper_subset_of = __lt__
 
     #----------------------------------------
     def __hash__(self):
@@ -162,7 +164,7 @@ class Set(dictionary):
         elements in another set."""
 
         self._binary_sanity_check(other, "updating intersection")
-        for elt in self.keys():
+        for elt in self.keys():  #make copy since modifying below
             if elt not in other:
                 del self[elt]
         return self
@@ -301,23 +303,12 @@ class Set(dictionary):
         return dictionary.popitem(self)[0]
 
     #----------------------------------------
-    def is_subset_of(self, other):
-        """Reports whether other set contains this set."""
-        if not isinstance(other, Set):
-            raise ValueError, "Subset tests only permitted between sets"
-        for element in self:
-            if element not in other:
+    def _within(self, other):
+        """Return true if all elements of self are contained in other."""
+        for elt in self:
+            if elt not in other:
                 return 0
         return 1
-
-    #----------------------------------------
-    def _generic_cmp(self, other, method):
-        """Compare one set with another using a dictionary method.
-        Sets may only be compared with sets; ordering is determined
-        by the keys in the underlying dictionary."""
-        if not isinstance(other, Set):
-            raise ValueError, "Sets can only be compared to sets"
-        return method(self, other)
 
     #----------------------------------------
     def _binary_sanity_check(self, other, updating_op=''):

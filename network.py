@@ -3,9 +3,9 @@
 
 """Network class for flow networks."""
 
-__version__ = "$Revision: 2.11 $"
+__version__ = "$Revision: 2.12 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2003/06/18 09:48:11 $"
+__date__    = "$Date: 2003/06/18 22:41:32 $"
 
 #Add Network.time to track how many ticks
 #Have Network.add(v), add +1 to v.energy, may need to split function for
@@ -24,15 +24,15 @@ DEFAULT_FLOW = 1
 NodeBaseType = IntegerBag
 FlowType = IntegerBag
 
-class Node(NodeBaseType, WeightedEdgeMixin):
+class Node(WeightedEdgeMixin, NodeBaseType): #order needed for Vertex.discard to override bag.discard
     """Node in a flow network."""
 
-    __slots__ = ['flow', 'last_tick', '_graph', '_id'] #XXX have to define _graph and _id since aren't inheriting from Vertex!
+    __slots__ = ['flow_out', 'last_tick', '_graph', '_id'] #XXX have to define _graph and _id since aren't inheriting from Vertex!
 
     def __init__(self, network, id, init={}):  #XXX parent class should do most of this
         self._graph = network
         self._id = id
-        self.flow = FlowType()
+        self.flow_out = FlowType()
         super(Node, self).__init__(init)  #parent class should call Node.__setitem__ to add Nodes to Network if necessary.
 
     def add(self, sink, capacity=DEFAULT_CAPACITY): #should be able to use Vertex.add()??
@@ -52,21 +52,10 @@ class Node(NodeBaseType, WeightedEdgeMixin):
             self[sink] += capacity
         except TypeError, error:  #list of sinks given
             if not isinstance(sink, list): raise TypeError(error)
-            for s in sink: #XXX should be able to use new bag.update_fromkeys()
-                self[s] += capacity
-
-    def discard(self, sink):
-        """Removes sink from vertex, if exists, and flow value.
-
-        >>> n = Network({1: {}, 2: {}, 3: {}})
-        >>> #n.discard([2, 3])  #XXX fails
-        >>>
-        """
-        super(Node, self).discard(sink) #FIXME this does not call Vertex.discard but bag.discard!! (can't discard list of tails)
-        self.flow.discard(sink)
+            self.update(sink, capacity)
 
     def __setitem__(self, sink, capacity):  #XXX should be able to use Vertex.__setitem__()
-        """Set arc capacity.  If sink does not exist and capacity>0, 
+        """Set arc capacity.  If sink does not exist and capacity > 0,
         sink is created and added to network.
         >>> n = Network()
         >>> n[1][3]
@@ -74,10 +63,18 @@ class Node(NodeBaseType, WeightedEdgeMixin):
         >>> n[1][2] = 3
         >>> print n
         {1: 0 {2: 3}, 2: 0 {}}
+        >>> n[1][2] = "must be int"
+        Traceback (most recent call last):
+        TypeError: must use integral type for bag values, not <type 'str'>
         """
         super(Node, self).__setitem__(sink, capacity)
         if sink not in self._graph:
             self._graph.add(sink)
+
+    def __delitem__(self, sink):
+        """Removes outgoing sink and clears any associated flow."""
+        super(Node, self).__delitem__(sink)
+        self.flow_out.discard(sink)
 
     def _push(self, bits, tick):
         """Advance node 1 time increment. Returns amount of energy remaining.
@@ -103,46 +100,43 @@ class Node(NodeBaseType, WeightedEdgeMixin):
         {1: -1, 3: 2}
         """
         assert bits #should not get called with 0 bits
-        paths = self.paths(bits)
         self.last_tick = tick   #XXX would like to set last_tick and clear flow only if paths!=[]
-        self.flow.clear()       #clear old flow values
-        bit = (bits>=0 and 1 or -1)
+        self.flow_out.clear()       #clear old flow values
+        g = self._graph
+        if bits >= 0:   #forward flow
+            bit = 1
+            paths = list(self) #XXX semantics of bag.__iter__ may change
+        else:           #backward flow
+            bit = -1
+            paths = reduce(operator.add, [[head]*abs(g[head][self._id]) for head in self.in_vertices()], [])
         while bits and paths:   #this could be faster by checking for path saturation (see rev2.8)
             path = paths.pop(int(random.random()*len(paths)))
             #change sign of bit transferred if path has negative capacity
-            if bit>0: self.flow[path] += (bit*(self[path]>=0 and 1 or -1))      #XXX what about negative weights?
-            else: self.flow[path] += (bit*(self._graph[path][self._id] >=0 and 1 or -1))
+            if bit>0: self.flow_out[path] += (bit*(self[path]>=0 and 1 or -1))      #XXX what about negative weights?
+            else: self.flow_out[path] += (bit*(g[path][self._id] >=0 and 1 or -1))
             bits -= bit
         return bits   #return remaining bits for next round
-
-    def paths(self, bits):
-        if bits >= 0:       #forward flow
-            return list(self)   #reduce(operator.add, [[tail]*capacity for tail, capacity in self.iteritems()], [])
-        else:               #backward flow
-            g = self._graph     #this optimization needed in a list comprehension?
-            return reduce(operator.add, [[head]*abs(g[head][self._id]) for head in self.in_vertices()], [])
 
     def flow_in(self):
         """Return bag with incoming flow.
 
         >>> n = Network()
         >>> n[1][2] = 2
-        >>> n.energy[1] = 3
-        >>> n() #n[1]._push(n.energy[1]. n.ticks)
+        >>> n[2][3] = 1
+        >>> n.energy.update({1: 3, 3: -2})
+        >>> n()
         >>> n[1].flow_in()
         {}
         >>> n[2].flow_in()
-        {1: 2}
+        {1: 2, 3: -1}
         """
-        b = FlowType()
-        for n in self._graph.itervalues():
-            if self._id in n.flow:
-                b[n._id] += n.flow[self._id]
-        return b
+        flow_in = FlowType()
+        for nid, node in self._graph.iteritems(): #flow may come from out_vertices if energy < 0
+            if self._id in node.flow_out:
+                flow_in[nid] += node.flow_out[self._id]
+        return flow_in
 
-    def flow_out(self): return self.flow
-
-    def _energy_out(self):  return sum(self.flow.itervalues())
+    def _energy_out(self):  return sum(self.flow_out.itervalues())
     def _energy_in(self): return sum(self.flow_in().itervalues())
     def _energy_read(self): return self._graph.energy[self._id]
     def _energy_write(self, value):  self._graph.energy[self._id] = value
@@ -153,7 +147,7 @@ class Node(NodeBaseType, WeightedEdgeMixin):
 
     def clear(self):
         super(Node, self).clear()
-        self.flow.clear()
+        self.flow_out.clear()
         self.energy = 0
 
     def __str__(self):
@@ -177,12 +171,12 @@ class Node(NodeBaseType, WeightedEdgeMixin):
         Traceback (most recent call last):
         AssertionError: _graph[_id] is not self
         >>> n[1]._id = 1
-        >>> n[1].flow[3] = 7  #n[1][3] non-existent
+        >>> n[1].flow_out[3] = 7  #n[1][3] non-existent
         >>> n[1]._validate()
         Traceback (most recent call last):
         AssertionError: flow encountered on non-existent edge
         """
-        for dest in self.flow:
+        for dest in self.flow_out:
             assert dest in self or dest in self.in_vertices(), "flow encountered on non-existent edge"
         super(Node, self)._validate()
         super(WeightedEdgeMixin, self)._validate() #FIXME
@@ -219,14 +213,14 @@ class Source(Node):
 
     def _push(self, bits, tick):
         assert bits == self.energy
-        self.flow.clear()
+        self.flow_out.clear()
         bit_id = self._pull()
         if bit_id:
             if bits >= 0:
-                self.flow += self #flow will be equal to out vertices' capacity
+                self.flow_out += self #flow will be equal to out vertices' capacity
                 return self.sum_out()
             else: #XXX find better way to do this -- should WVertex have a method for this?
-                self.flow -= FlowType([(tail, self._graph[tail][self._id]) for tail in self.in_vertices()])
+                self.flow_out -= FlowType([(head, self._graph[head][self._id]) for head in self.in_vertices()])
                 return -self.sum_in()
         return 0
 
@@ -277,12 +271,12 @@ class FileSource(Source): #cannot multiple inherit from file also
     def _push(self, bits, tick):
         """Reads information from source, propagates to downstream nodes."""
         assert bits == self.energy, "Unexpected bits value: " % bits
-        self.flow.clear()
+        self.flow_out.clear()
         bit_id = self._pull() #XXX should make Network call this
         if bit_id:
             if bit_id.isalpha():     #skip non-alpha
                 self.add(bit_id)     #add edge, will also add bit_id to network
-                self.flow[bit_id] += bits
+                self.flow_out[bit_id] += bits
                 self.last_tick = tick
             return bits        #XXX could return filesize - 1
         else: return 0  #EOF:  nothing left for this source
@@ -334,7 +328,7 @@ class Sink(Node):
         return 0
 
     def _validate(self):
-        assert len(self.flow) == 0, "Unexpected flow_out: %s" % self.flow_out()
+        assert len(self.flow_out) == 0, "Unexpected flow_out: %s" % self.flow_out()
         assert self.out_degree() == 0
         super(Sink, self)._validate()
 
@@ -425,12 +419,12 @@ class Network(Graph):
             self.energy[node._id] = node._push(self.energy[node._id], self.ticks)
             #f = (energy[node._id] != start_energy)
             #if not f: active_nodes.remove(node) #don't update in next loop
-            flow += (abs(node.flow))
+            flow += (abs(node.flow_out))
         return flow
 
     def _pull(self, active_nodes):  #XXX should call node._pull() so node can have info on who gave energy
         for node in active_nodes:   #have to wait until all flow calculations done to avoid adding energy to unvisited nodes.
-            self.energy.update(node.flow)
+            self.energy.update(node.flow_out)
 
     def node_energy(self):
         """Returns total amount of energy in nodes.
@@ -499,8 +493,8 @@ class Network(Graph):
         """
         if _DEBUG: self._validate()
         for nid, n in self.iteritems():
-            if self.energy[nid] or n.flow:
-                print "%s: %s %s" % (nid, self.energy[nid], self[nid].flow)
+            if self.energy[nid] or n.flow_out:
+                print "%s: %s %s" % (nid, self.energy[nid], self[nid].flow_out)
 
     def clear(self):
         super(Network, self).clear()
@@ -547,6 +541,9 @@ def _test():
     >>> n.add(4, 1)
     >>> print n
     {1: 0 {2: 3, 3: 2}, 2: 0 {}, 3: 0 {}, 4: 0 {1: 1}}
+
+    >>> n = Network({1: {}, 2: {}, 3: {}})
+    >>> n.discard([2, 3])
     """
 
     import doctest, network

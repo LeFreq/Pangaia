@@ -3,13 +3,13 @@
 
 """Bag types"""
 
-__version__ = "$Revision: 2.12 $"
+__version__ = "$Revision: 2.13 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2003/07/04 00:53:05 $"
+__date__    = "$Date: 2004/07/07 03:08:27 $"
 
 #bag should have list interface? --should add list methods: append, remove, min/max,  __str__ return list string, etc.
 #   in addition to min/max(), perhaps create most/least() to return the item with the highest/lowest count
-#XXX checking in setitem takes too much time: create compress function that removes zero-valued items periodically or on methods which rely on non-zero values: iter, str, etc.
+#XXX checking in setitem takes too much time: create compress function that removes zero-valued items periodically or on methods which rely on non-zero values: __contains__, iter, str, etc.
 #create bag attribute to hold size of bag and re-calculate only when bag has been written to.
 #XXX .size() should probably be converted to a property.
 #perhaps limit bag to either list or dict types for adding/updating.  --note new dict.fromkeys has no such limit
@@ -17,6 +17,7 @@ __date__    = "$Date: 2003/07/04 00:53:05 $"
 #Let __init__ take a check function instead of defining one in class to make it easier for bag refinements w/o resorting to subclassing
 # OR perhaps set __setitem__ to a class static variable, initially set to None, but then set appropriately in the __init__()
 # this way bag could just be a special type of defdict (which would use this "staticmethod" to set value to default if none specified.
+# Actually, I think letting __init__ take a filter function (instead of defining method in class explicitly) which also returns the "zero" value when called with empty argument list, returning the currect type for __getitem__, for example (e.g. if filter=list, then getitem returns a NEW, empty list, if filter=int, returns 0, etc.)
 
 import random  #pick()
 
@@ -146,6 +147,19 @@ class IntegerBag(dict):
         if remove: self -= picked
         return picked
 
+    def pop(self, item):
+        """Remove all of item from bag, returning its count, if any.
+
+        >>> b = IntegerBag.fromkeys("abacab")
+        >>> b.pop('b')
+        2
+        >>> b.pop('z')
+        0
+        >>> print b
+        {'a': 3, 'c': 1}
+        """
+        return super(IntegerBag, self).pop(item, 0)
+
     def discard(self, item):
         """Removes all of the specified item if it exists, otherwise ignored.
 
@@ -203,8 +217,8 @@ class IntegerBag(dict):
         """Add one bag to another, returns type of first bag.
 
         >>> b = IntegerBag({1: 2, 2: -2}) + Bag({1: 5, 2: 1, 3: 7})
-        >>> b, type(b)
-        ({1: 7, 2: -1, 3: 7}, <class 'bag.IntegerBag'>)
+        >>> b, "IntegerBag" in str(type(b))
+        ({1: 7, 2: -1, 3: 7}, True)
         """
         return self.__class__(self).__iadd__(other)
 
@@ -284,7 +298,7 @@ class IntegerBag(dict):
         """
         return sum(map(abs, self.itervalues()))
 
-    size = property(_size, None, None, None)
+    size = property(_size, None, None, "Sum of absolute count values in the bag")
 
     def __getitem__(self, item):
         """Returns total count for given item, or zero if item not in bag.
@@ -357,7 +371,7 @@ class IntegerBag(dict):
         keys.sort()
         return '{%s}' % ', '.join(["%r: %r" % (k, self[k]) for k in keys])
 
-    def _filter(value): #XXX coult just set _filter = int but doctest complains
+    def _filter(value): #XXX could just set _filter = int but doctest complains even under Python 2.3.3
         """Coerces value to int and returns it, or raise raises TypeError."""
         return int(value)
 
@@ -403,7 +417,7 @@ class Bag(IntegerBag):
         """
         return sum(self.itervalues())
 
-    size = property(_size, None, None, None)
+    size = property(_size, None, None, "Sum of all bag values.")
 
     def _filter(value):
         """Returns 0 if value is negative. """
@@ -432,8 +446,8 @@ def _test():
     >>> bool(b)
     True
     """
-    import doctest, bag
-    return doctest.testmod(bag, isprivate=lambda *args: 0)
+    import doctest
+    return doctest.testmod()
 
 if __name__ == "__main__":
     _test()

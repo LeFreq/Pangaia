@@ -3,9 +3,9 @@
 
 """Bag types"""
 
-__version__ = "$Revision: 2.8 $"
+__version__ = "$Revision: 2.9 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2003/06/17 06:35:42 $"
+__date__    = "$Date: 2003/06/18 22:26:16 $"
 
 #bag should have list interface? --should add list methods: append, remove, min/max,  __str__ return list string, etc.
 #   in addition to min/max(), perhaps create most/least() to return the item with the highest/lowest count
@@ -87,8 +87,8 @@ class IntegerBag(dict):
 
     fromkeys = classmethod(fromkeys)
 
-    def update(self, items):
-        """Adds contents to bag from other mapping type.
+    def update(self, items, count=1):
+        """Adds contents to bag from other mapping type or iterable.
 
         >>> ib = IntegerBag.fromkeys('abc')
         >>> ib.update({'a': 2, 'b': 1, 'c': 0})
@@ -100,13 +100,18 @@ class IntegerBag(dict):
         >>> print ib
         {'a': 1, 'c': -1, 'd': 2}
 
+        Can call with iterable.  Amount added can be specified by count parameter:
+        >>> ib.update(['a','b'], 2)
+        >>> print ib
+        {'a': 3, 'b': 2, 'c': -1, 'd': 2}
+
         Invalid values are skipped, and will raise TypeError.
         >>> ib.update({0: 'test1', 'a': 'test2', 'd': 3, 'f': 1.0, 'c': 2.0})
         Traceback (most recent call last):
         ...
         TypeError: must use integral type for bag values, not <type 'float'>
         >>> print ib
-        {'a': 1, 'c': -1, 'd': 5}
+        {'a': 3, 'b': 2, 'c': -1, 'd': 5}
 
         Updating NaturalBag with values that would cause the count to go negative raises ValueError,
         leaving value unaffected.  Other elements still get updated:
@@ -125,11 +130,18 @@ class IntegerBag(dict):
         #XXX should raise exception and return unchanged self if problem encountered!
         #XXX or use logging.warning() and continue
         bad_value_encountered = False
-        for key, count in items.iteritems():
-            try:
-                self[key] += count  #may be slower than necessary
-            except (TypeError, ValueError):
-                bad_value_encountered, bad_value = True, count #XXX figure out how to capture an exception and just re-raise it
+        if isinstance(items, dict):
+            for key, count in items.iteritems():
+                try:
+                    self[key] += count  #may be slower than necessary
+                except (TypeError, ValueError):
+                    bad_value_encountered, bad_value = True, count #XXX figure out how to capture an exception and just re-raise it
+        else: #iterable
+            for key in items:
+                try:
+                    self[key] += count
+                except (TypeError, ValueError):
+                    bad_value_encountered, bad_value = True, count
         if bad_value_encountered: self._check_value(bad_value)
 
     def pop(self):
@@ -153,7 +165,7 @@ class IntegerBag(dict):
         self._check_value(count)
         return count and dict.setdefault(self, item, count)
 
-    def __iadd__(self, iterable, count=1):  #XXX may fail mid-update...
+    def __iadd__(self, iterable):
         """Add items in iterable object to bag.
 
         >>> b = NaturalBag()
@@ -165,8 +177,7 @@ class IntegerBag(dict):
         >>> print b
         {'a': 2, 'b': 1, 'c': 1}
         """
-        for key in iterable:
-            self[key] += count
+        self.update(iterable, 1)  #XXX may fail mid-update...
         return self
 
     def __isub__(self, iterable):

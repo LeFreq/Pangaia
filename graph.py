@@ -3,6 +3,10 @@
 
 """Graph class."""
 
+__version__ = "$Revision: 1.5 $"
+__author__  = "$Author: average $"
+__date__    = "$Date: 2001/10/16 01:34:03 $"
+
 #change a lot of these for loops to use faster map() function (see FAQ and QuickReference)
 #remember reduce(lambda x,y: x+y, [1,2,3,4,5]) works for summing all elements...
 #add persistence
@@ -17,6 +21,7 @@
 # consider providing generator-iterators on vertex for in and out vertices.
 
 from __future__ import nested_scopes
+from __future__ import generators
 
 import dictset
 
@@ -28,7 +33,11 @@ _DEBUG = 1
 _PROFILE = 1
 
 #see graph1.py for collision enhancement
+
+# {{{ Vertex
 class Vertex(VertexBaseType):
+    """Vertex holds the set of the vertices of its own outward directed edges.
+    Edge values are taken to be arbitrary."""
 
     def __init__(self, graph, tails=[]):
         """Create a Vertex object in graph, populated with optional tail(s)."""
@@ -52,14 +61,10 @@ class Vertex(VertexBaseType):
         """Removes tail if present, otherwise does nothing."""
         try:
             del self[tail]
-        except KeyError:  return
+        except LookupError:  return
         except TypeError: #must have been given a tail list
             if not isinstance(tail, list): raise TypeError, "argument must be hashable type or a list object."
-            if self.out_degree():  #no need to continue if self is empty
-                for t in tail:
-                    try:  #faster than if t in self: del self[t]
-                        del self[t]
-                    except KeyError: pass
+            self -= tail
 
     def update(self, tails):
         """Add list of tails from iterable object to Vertex.  Adds tails to graph."""
@@ -69,9 +74,7 @@ class Vertex(VertexBaseType):
                 self._graph.add(t)
                 self[t] = EdgeValue
 
-    def out_vertices(self):
-        return self.keys()
-
+    out_vertices = VertexBaseType.iterkeys
     out_degree = VertexBaseType.__len__
 
     def _fastupdate(self, tails):
@@ -83,9 +86,11 @@ class Vertex(VertexBaseType):
 
     def __isub__(self, other):
         """Remove the given tail vertices.  Other can be any iterable object."""
-        if len(self):
-            for tail in other:  #XXX inefficient if self is near empty
-                self.discard(tail)
+        for tail in other:  #XXX inefficient if self is near empty
+            try:
+                del self[tail]
+            except LookupError:
+                if not len(self): break
         return self
 
     def __str__(self):
@@ -95,13 +100,15 @@ class Vertex(VertexBaseType):
     def validate(self):
         assert isinstance(self._graph, BaseGraph)
         for t in self:
-            assert t in self._graph, "Non-existant tail %s in vertex %s" % (t, self._id)
-            assert self[t] == EdgeValue, "Bad value on tail %s in vertex %s" % (t, self._id)
+            assert t in self._graph, "Non-existant tail %s in vertex" % t
+            assert self[t] == EdgeValue, "Bad value on tail %s in vertex" % t
+# }}} Vertex
 
 # {{{ Graph class
 class BaseGraph(BaseType):
-    """Basic class implementing a directed Graph.  Vertices without edges are allowed.  Self-referencing vertices are allowed."""
-    #Basic data structure {vertex id: Vertex(tail vertices)}
+    """Basic class implementing a directed Graph.  Vertices without edges are allowed.
+    Self-referencing vertices are allowed."""
+    #Basic data structure {vertex id: {t1: edge; t2: edge}
 
     def __init__(self, initgraph=None):
         BaseType.__init__(self)
@@ -137,19 +144,24 @@ class BaseGraph(BaseType):
         select(ALL, t) return g[t].in_edges
         select(v) returns v in g
         select(h,t) returns (h,t) if in g"""
-        if not isinstance(head, list): head = [head]
+        #XXX if self.vertices() is passed as both parameters, it appears that each affect the other...
+        if not isinstance(head, list) and type(head)!=type(self.iterkeys()): head = [head]
         if tail==[]:
             return [h for h in head if h in self]
         else:
-            if not isinstance(tail, list): tail = [tail]
+            if not isinstance(tail, list) and type(tail)!=type(self.iterkeys()): tail = [tail]
             return [(h, t) for h in head if h in self for t in tail if t in self[h]]
 
     def discard(self, head, tail=[]):
-        """Remove the vertex and all associated edges."""   ##FIXME
+        """Remove vertices and/or edges.
+        If tail is non-empty, then only edge deletions are made.
+        If tail is empty, then vertex deletions are made and any associated edges.
+        Parameter can be single vertex or list of vertices."""
         if tail==[]:    #vertex deletions
             try:
                 del self[head]
-            except TypeError:   #given head list
+            except LookupError: pass   #do nothing if given non-existent vertex
+            except TypeError:          #given head list
                 if not isinstance(head, list): raise TypeError, "argument must be hashable type or a list object."
                 for h in head:
                     if h in self:
@@ -158,20 +170,22 @@ class BaseGraph(BaseType):
                     #else head -= h #for faster tail removal in next loop
                 for h in self:   #visit remaining vertices and remove occurances of head items in edge lists
                     self[h].discard(head)
-            except LookupError: pass   #do nothing if given non-existent vertex
-        else:   #edge deletions
-            if not isinstance(head, list): head = [head]
+        else:   #edge deletions only
+            if not isinstance(head, list): head = [head] #quick and dirty
             for h in head:
                 if h in self:
                     self[h].discard(tail)
         if _DEBUG: self.validate()
 
-    out_vertices = BaseType.__getitem__
+    out_vertices = BaseType.__getitem__  #note:  returns dictionary, unlike in_vertices() which returns iterator
 
     def in_vertices(self, vertex):
+        """Return iterator over the vertices where vertex is tail."""
         if vertex not in self:
             raise LookupError, vertex
-        return [h for h in self if vertex in self[h]]
+        for h in self:
+            if vertex in self[h]:
+                yield h
 
     def setdefault(self, vertex, failobj=None): #don't put Vertex() here as default parameter since then only evaluated once-->all vertices get same Set!
         assert failobj is None
@@ -198,7 +212,7 @@ class BaseGraph(BaseType):
                 self[h] = other[h].copy()
 
     #alternate syntax for various items
-    vertices = BaseType.keys
+    vertices = BaseType.iterkeys
     order = BaseType.__len__
     #__setitem__ #for some reason is called for self[v] -= [tails] so can't remove from interface
 
@@ -239,7 +253,7 @@ def test(g, size=100):
     g.add(0)
     g.add(0,0)
     g.add(1)
-    print g.select(g.vertices(), g.vertices())
+    print g.select(g.keys(), g.keys())
     g.add(1)
     g.add(1,0)
     g.add(1,0)
@@ -275,9 +289,9 @@ def test(g, size=100):
             print "Add 1000, 1000; pass %i: %5.2fs" %  (i, (finish-start))
         for i in [1,2]:
             start=time.clock()
-            g.discard(range(1000), range(1000))
+            g.discard(range(1000), range(100))#, range(1000))
             finish=time.clock()
-            print "Discard 1000, 1000; pass %i:  %5.2fs" % (i, (finish-start))
+            print "Discard 1000, 100; pass %i:  %5.2fs" % (i, (finish-start))
         g.clear()
         g.add(0)
         for i in [1,2]:

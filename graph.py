@@ -3,9 +3,9 @@
 
 """Graph class."""
 
-__version__ = "$Revision: 2.13 $"
+__version__ = "$Revision: 2.14 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2003/06/18 22:31:02 $"
+__date__    = "$Date: 2003/06/20 21:51:25 $"
 
 #change a lot of these for loops to use faster map() function (see FAQ and QuickReference)
 #also: map/reduce/filter now work with any iterable object (including dictionaries!)
@@ -74,7 +74,7 @@ class VertexMixin(object):
             if self._id in head:
                 yield head._id
 
-    def in_degree(self):
+    def in_degree(self):    #O(n)
         """Return number of edges pointing into vertex.
 
         >>> g = Graph()
@@ -161,7 +161,7 @@ class WeightedEdgeMixin(VertexMixin):
             assert isinstance(weight, NumberType)
 
 
-class Vertex(VertexBaseType, VertexMixin):
+class Vertex(VertexMixin, VertexBaseType):
     """Vertex holds the set of the vertices of its own outward directed edges.
     Edge values are user-settable and use overwrite semantics."""
     #Add id property to determine id, given Vertex
@@ -169,12 +169,12 @@ class Vertex(VertexBaseType, VertexMixin):
 
     __slots__ = ['_graph', '_id']  #Put all Vertex attributes here.  Uses base class' dictionary, instead of creating duplicate
 
-    def __init__(self, graph, id, init={}, edge_value=EDGEVALUE, collision=OVERWRITE):
+    def __init__(self, graph, id, init={}):
         """Create a vertex object in graph.  Assumes id already in graph.
         Will add tails in init as necessary."""
         self._graph = graph  #graph to which this vertex belongs
         self._id = id
-        super(Vertex, self).__init__(init, edge_value, collision)
+        super(Vertex, self).__init__(init, EDGEVALUE)
         if init: graph.add(list(init)) #ensure tails are in graph
 
     def add(self, tail, edge_value=USE_DEFAULT, collision=OVERWRITE):
@@ -251,6 +251,8 @@ class Vertex(VertexBaseType, VertexMixin):
 
 class WVertex(WeightedEdgeMixin, Vertex):
     """Vertex with methods to sum edge weights."""
+
+    __slots__ = []
 
 
 def MERGE_VERTEX(g, h, vert): g[h].update(vert)
@@ -450,7 +452,7 @@ class Graph(GraphBaseType):
         KeyError: 2
         """
         dict.__getitem__(self, head).clear() #removes out vertices (bypass key creation with dict.__getitem__)
-        for v in self[head].in_vertices():
+        for v in list(self[head].in_vertices()): #create copy (via list()) since in_vertices contents may change during iteration
             del self[v][head]
         super(Graph, self).__delitem__(head)
 

@@ -3,168 +3,52 @@
 
 """Network class for flow networks."""
 
-__version__ = "$Revision: 2.16 $"
+__version__ = "$Revision: 2.17 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2003/06/23 02:09:04 $"
+__date__    = "$Date: 2003/07/04 01:28:47 $"
 
 #Add Network.time to track how many ticks
 #Have Network.add(v), add +1 to v.energy, may need to split function for
 #separate add_edge(h,t) function
-
-from __future__ import generators
+#use logging.debug to record all reads, logging.info to record all writes, logging.error to record TypeError issues, logging.critical for assertions...?
 
 from graph import *
 from bag import *
 
 _DEBUG = True
-DEFAULT_CAPACITY = 1
 DEFAULT_FLOW = 1
 
 NodeBaseType = IntegerBag
 FlowType = IntegerBag
 
-class ReverseEdgeMixin(dict):
-    """Mixin to allow O(1) access to in_vertices.  Inherit instead of or before VertexMixin."""
-    #XXX need doctests, also investigate slots issue (multiple bases have instance layout conflict)
 
-    __slots__ = ['reverse']
-
-    def __init__(self, *args): #???
-        self.reverse = NodeBaseType() #???
-        super(ReverseEdgeMixin, self).__init__(*args)
-
-    def in_vertices(self):
-        """Return iterator over the vertices that point to self.
-
-        >>> n = Network()
-        >>> n.add(1, [2, 3, 4])
-        >>> n.add(2, [3, 2])
-        >>> list(n[2].in_vertices())      #XXX arbitrary order
-        [1, 2]
-
-        Can also use:
-        >>> list(n[2].reverse)
-        [1, 2]
-        """
-        return self.reverse.iterkeys()
-
-    def in_degree(self):
-        """Return number of edges pointing into vertex.
-
-        >>> n = Network()
-        >>> n.add(1, [2, 3, 4])
-        >>> n.add(2, [3, 2])
-        >>> n[1].in_degree(), n[2].in_degree(), n[4].in_degree()
-        (0, 2, 1)
-        """
-        return len(self.reverse)
-
-    def sum_in(self):
-        """Return sum of all edges that point to vertex.
-
-        >>> n = Network()
-        >>> n.add(1, [1, 2, 3])
-        >>> n.add(4, 1, 3)
-        >>> n[1].sum_in(), n[3].sum_in(), n[4].sum_in()
-        (4, 1, 0)
-        """
-        return sum(self.reverse.itervalues())
-
-    def __setitem__(self, tail, value):
-        """Set edge capacity.  Will also update other vertex.reverse.
-
-        >>> n = Network()
-        >>> n[1][2] = 3
-        >>> n[1], n[2].reverse
-        ({2: 3}, {1: 3})
-        """
-        if value: #XXX value = self._filter(value)?
-            if tail != self._id:  #creates tail vertex so check value first
-                self._graph[tail].reverse[self._id] = value
-            else:
-                self.reverse[self._id] = value
-        super(ReverseEdgeMixin, self).__setitem__(tail, value)
-
-    def __delitem__(self, tail):
-        """Removes tail from self and self._id from tail.reverse.
-
-        >>> n = Network()
-        >>> n[1][2] = 3
-        >>> n[2].reverse
-        {1: 3}
-        >>> del n[1][2]
-        >>> n[2].reverse
-        {}
-        """
-        if tail in self._graph:
-            del self._graph[tail].reverse[self._id]  #creates tail vertex so check if tail in graph first
-        super(ReverseEdgeMixin, self).__delitem__(tail)
-
-    def clear(self): #XXX should this clear self.reverse also?
-        """Removes all tails from self and all references to self._id in tail.reverse
-
-        >>> n = Network({1: {1: 1, 2: 4, 3: 9}, 2: {3: 8}})
-        >>> n[1].clear()
-        >>> n[1].reverse, n[2].reverse, n[3].reverse
-        ({}, {}, {2: 8})
-        """
-        g, vid = self._graph, self._id
-        for tail in self:
-            del g[tail].reverse[vid]
-        super(ReverseEdgeMixin, self).clear()
-
-    def _validate(self):
-        super(ReverseEdgeMixin, self)._validate()
-        for head, weight in self.reverse.iteritems():
-            assert self._graph[head][self._id] == weight
-
-
-class Node(ReverseEdgeMixin, WeightedEdgeMixin, NodeBaseType): #order needed for Vertex.discard to override bag.discard
+class Node(ReverseEdgeMixin, WVertex, NodeBaseType): #order needed for Vertex.discard to override bag.discard
     """Node in a flow network."""
 
-    __slots__ = ['flow_out', 'last_tick', '_graph', '_id'] #XXX have to define _graph and _id since aren't inheriting from Vertex!
+    __slots__ = ['reverse', 'flow_out', 'last_tick']
 
-    def __init__(self, network, id, init={}):  #XXX parent class should do most of this
-        self._graph = network
-        self._id = id
+    EDGEVALUE = 1  #default capacity #XXX does not change references to EDGEVALUE in Vertex classes!
+
+    def __init__(self, network, id, init={}):
         self.flow_out = FlowType()
-        super(Node, self).__init__(init)  #parent class should call Node.__setitem__ to add Nodes to Network if necessary.
+        super(Node, self).__init__(network, id, init)  #parent class should call Node.__setitem__ to add Nodes to Network if necessary.
+        self.reverse = NodeBaseType(self.reverse)
 
-    def add(self, sink, capacity=DEFAULT_CAPACITY): #should be able to use Vertex.add()??
-        """Add connection to sink with given capacity (defaults to 1).
-        >>> n = Network()
-        >>> n[1].add([2, 3], 5)
-        >>> print n[1]
-        0 {2: 5, 3: 5}
+    def update(self, sinks, capacity=EDGEVALUE):
+        """Add sinks to node.  If sinks is type Node, then add Node energy too.
 
-        If sink already connected, capacity is accumulates.
-        >>> n[1].add(2, 2)
-        >>> n[1].add(2)     #will use default cap=1
-        >>> print n[1]
-        0 {2: 8, 3: 5}
+        >>> n = Network({1: {1: 1, 2: 4, 3: 9}})
+        >>> n[1].energy = 10
+        >>> n[2].update(n[1])
+        >>> print n[2]
+        10 {1: 1, 2: 4, 3: 9}
         """
-        try:    #single sink addition
-            self[sink] += capacity
-        except TypeError, error:  #list of sinks given
-            if not isinstance(sink, list): raise TypeError(error)
-            self.update(sink, capacity)
+        NodeBaseType.update(self, sinks, capacity)
+        if isinstance(sinks, Node): self.energy += sinks.energy
 
-    def __setitem__(self, sink, capacity):  #XXX should be able to use Vertex.__setitem__()
-        """Set arc capacity.  If sink does not exist and capacity > 0,
-        sink is created and added to network.
-        >>> n = Network()
-        >>> n[1][3]
-        0
-        >>> n[1][2] = 3
-        >>> print n
-        {1: 0 {2: 3}, 2: 0 {}}
-        >>> n[1][2] = "must be int"
-        Traceback (most recent call last):
-        ValueError: invalid literal for int(): must be int
-        """
-        super(Node, self).__setitem__(sink, capacity)
-        if sink not in self._graph:
-            self._graph.add(sink)
+    add = update
+
+    def __getitem__(self, sink): return NodeBaseType.__getitem__(self, sink) #XXX doctest won't allow __getitem__ = NodeBaseType.__getitem__
 
     def __delitem__(self, sink):
         """Removes outgoing sink and clears any associated flow."""
@@ -232,7 +116,7 @@ class Node(ReverseEdgeMixin, WeightedEdgeMixin, NodeBaseType): #order needed for
     def _energy_write(self, value):  self._graph.energy[self._id] = value
 
     flow_in = property(_flow_in, None, None, "Dictionary type containing incoming flow values.")
-    energy = property(_energy_read, _energy_write, None, "Energy at node. Slow -- use network.energy[id]")
+    energy = property(_energy_read, _energy_write, None, "Energy at node. Faster to use network.energy[id]")
 
     def clear(self):
         super(Node, self).clear()
@@ -268,7 +152,6 @@ class Node(ReverseEdgeMixin, WeightedEdgeMixin, NodeBaseType): #order needed for
         for dest in self.flow_out:
             assert dest in self or dest in self.reverse, "flow encountered on non-existent edge"
         super(Node, self)._validate()
-        super(WeightedEdgeMixin, self)._validate() #FIXME
 
 
 class Source(Node):
@@ -306,13 +189,15 @@ class Source(Node):
 
     def _push(self, bits, tick):
         if bits >= 0:
-            bits = self.size
+            #if self.size == 0: return bits  #nothing to push (no out edges)
+            bits = self.size or bits
             super(Source, self)._push(bits, tick)
-            return self.flow_out.size
+            return self.flow_out.size or bits
         else:
-            bits = -self.reverse.size
+            #if self.reverse.size == 0: return bits  #nothing to push (no in edges)
+            bits = -self.reverse.size or bits
             super(Source, self)._push(bits, tick)
-            return -self.flow_out.size
+            return -self.flow_out.size or bits
 
 
 class FileSource(Source): #cannot multiple inherit from file also
@@ -368,7 +253,7 @@ class FileSource(Source): #cannot multiple inherit from file also
         bit_id = self._pull() #XXX should make Network call this
         if bit_id:
             if bit_id.isalpha():     #skip non-alpha
-                self.add(bit_id)     #add edge, will also add bit_id to network
+                self[bit_id] += 1    #add edge, will also add bit_id to network
                 self.flow_out[bit_id] += bits
                 self.last_tick = tick
             return bits        #XXX could return filesize - 1
@@ -495,30 +380,6 @@ class Network(Graph):
         self.energy = FlowType()   #stores energy values at each node
         self.ticks = 0           #number of network clock ticks since creation
         super(Network, self).__init__(init, VertexType) #will call update()
-
-    def update(self, other, default=USE_DEFAULT, collision=MERGE_VERTEX):
-        """Merges one graph with another.  All vertices will be convertex to VertexType.  Takes union of edge
-        >>> n, g = Network(), Graph(VertexType=WVertex)
-        >>> n.add(1, [1, 2])
-        >>> g.add(3, [2, 3]); g.add(1, 2, 3); g.add(1, 4, 2)
-        >>> n.update(g)
-        >>> print n
-        {1: 0 {1: 1, 2: 4, 4: 2}, 2: 0 {}, 3: 0 {2: 1, 3: 1}, 4: 0 {}}
-        >>> g.add(3, 5)  #changes to g should not affect n
-        >>> n._validate()
-        >>> n2 = Network(g)
-        >>> n2.energy.update({1: 5, 3: 1})
-        >>> print n2
-        {1: 5 {2: 3, 4: 2}, 2: 0 {}, 3: 1 {2: 1, 3: 1, 5: 1}, 4: 0 {}, 5: 0 {}}
-        >>> n.energy[1] += 2
-        >>> n.update(n2)
-        >>> print n
-        {1: 7 {1: 1, 2: 7, 4: 4}, 2: 0 {}, 3: 1 {2: 2, 3: 2, 5: 1}, 4: 0 {}, 5: 0 {}}
-        """
-        #XXX if other has invalid (non-Integer) values then exception raised midway through!
-        super(Network, self).update(other, default, collision)
-        if isinstance(other, Network): #what about other.io?
-            self.energy += other.energy
 
     def __call__(self, ticks=1):
         """Advance network for specified ticks, defaults to 1.
@@ -708,6 +569,43 @@ def _test():
     >>> n.test = "BAD"
     Traceback (most recent call last):
     AttributeError: 'Network' object has no attribute 'test'
+
+    Node.__setitem__():
+    >>> n = Network()
+    >>> n[1][3]
+    0
+    >>> n[1][2] = 3
+    >>> print n
+    {1: 0 {2: 3}, 2: 0 {}}
+    >>> n[1][2] = "must be int"
+    Traceback (most recent call last):
+    ValueError: invalid literal for int(): must be int
+
+    From Network.add:
+    >>> n = Network()
+    >>> n[1].add([2, 3], 5)
+    >>> print n[1]
+    0 {2: 5, 3: 5}
+
+    If sink already connected, capacity is accumulates.
+
+    From Network.update():
+    >>> n, g = Network(), Graph(VertexType=WVertex)
+    >>> n.add(1, [1, 2])
+    >>> g.add(3, [2, 3]); g.add(1, 2, 3); g.add(1, 4, 2)
+    >>> n.update(g)
+    >>> print n
+    {1: 0 {1: 1, 2: 4, 4: 2}, 2: 0 {}, 3: 0 {2: 1, 3: 1}, 4: 0 {}}
+    >>> g.add(3, 5)  #changes to g should not affect n
+    >>> n._validate()
+    >>> n2 = Network(g)
+    >>> n2.energy.update({1: 5, 3: 1})
+    >>> print n2
+    {1: 5 {2: 3, 4: 2}, 2: 0 {}, 3: 1 {2: 1, 3: 1, 5: 1}, 4: 0 {}, 5: 0 {}}
+    >>> n.energy[1] += 2
+    >>> n.update(n2)
+    >>> print n
+    {1: 7 {1: 1, 2: 7, 4: 4}, 2: 0 {}, 3: 1 {2: 2, 3: 2, 5: 1}, 4: 0 {}, 5: 0 {}}
     """
 
     import doctest, network

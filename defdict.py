@@ -3,9 +3,9 @@
 
 """Dictionary with default values."""
 
-__version__ = "$Revision: 1.7 $"
+__version__ = "$Revision: 1.8 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/07/02 23:56:45 $"
+__date__    = "$Date: 2002/07/05 00:29:25 $"
 
 import exceptions
 import copy
@@ -42,6 +42,8 @@ class defdict(dict):
     (defdict, key, new_value) as parameters.
     """
     #XXX may wish to have collision method instead of constantly passing as parameter
+    #perhaps update and setdefault should take copydef parameter instead of setting attribute:
+    #  could assume copydef=0 for setdefault and =1 for update.
     
     __slots__ = ['default', 'copydef']
     
@@ -71,7 +73,7 @@ class defdict(dict):
         The defdict's default value can be modified by writing to 
         its .default attribute.
         
-        >>> dd.default = 1       #change dd's default value
+        >>> dd.default = 1        #change dd's default value
         >>> dd.update([2, 3, 4])  #default will be used since no value specified
         >>> print dd
         {0: 0, 1: 0, 2: 1, 3: 1, 4: 1}
@@ -139,14 +141,12 @@ class defdict(dict):
         >>> print d
         {'a': 5, 'b': 6, 'c': 3, 'd': 2, 'e': 5, 'f': 10}
                 
-        NOTE:  User is responsible for ensuring that collision function will not 
-        cause an error for any given or existing value operands, else dictionary
-        may be left in partially-updated state.
+        NOTE:  If collision function raises an exception, defdict may be
+        left in partially-updated state.
         """
         
         #perhaps should catch any exceptions that may be caused by collision
         #  and store aberrent keys in the exception to be reported later.
-        #wish dict.update allowed collision function (much faster)
         if isinstance(other, dict):
             if collision == OVERWRITE:
                 dict.update(self, other)
@@ -201,12 +201,13 @@ class defdict(dict):
         >>> assert dd[0] is dd.default
         >>>
         """
+        key_absent = key not in self   #fail immediately if key unhashable
         if value == USE_DEFAULT:
             if not self.copydef:
                 value = self.default
             else:
                 value = copy.copy(self.default)
-        if key not in self or collision == OVERWRITE:
+        if key_absent or collision == OVERWRITE:
             self[key] = value
             return value
         else:
@@ -228,13 +229,13 @@ class defdict(dict):
 
     def copy(self):
         """Return shallow copy of dictionary.
-        >>> dd = defdict(range(5), 5)
+        >>> dd = defdict(range(5), 5, copydef=1)
         >>> ddcopy = dd.copy()
-        >>> print ddcopy.default, type(ddcopy); print ddcopy
-        5 <class 'defdict.defdict'>
+        >>> print ddcopy.default, ddcopy.copydef, type(ddcopy); print ddcopy
+        5 1 <class 'defdict.defdict'>
         {0: 5, 1: 5, 2: 5, 3: 5, 4: 5}
         """
-        return self.__class__(self, self.default)
+        return self.__class__(self, self.default, copydef=self.copydef)
         
     def __str__(self):
         """Convert self to string with keys in sorted order.
@@ -245,8 +246,9 @@ class defdict(dict):
         keys = self.keys()
         keys.sort()
         s = '{'
-        for k in keys: #XXX doesn't work right: omits quotes around strings
-            s+= "%r: %r, " % (k, self[k]) #
+        #", ".join(map(operator.mod, ["%r: %r"]*len(self), self.items()))
+        for k in keys:
+            s+= "%r: %r, " % (k, self[k])
         return s[:-2] + '}'
 
 

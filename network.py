@@ -3,9 +3,9 @@
 
 """Network class for flow networks."""
 
-__version__ = "$Revision: 2.3 $"
+__version__ = "$Revision: 2.4 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/08/06 22:47:25 $"
+__date__    = "$Date: 2002/08/07 02:25:42 $"
 
 #Add Network.time to track how many ticks
 
@@ -55,13 +55,13 @@ class Node(WVertex):
         """
         super(Node, self).update(sinks, capacity, collision)
     
-    def tick(self):
+    def __call__(self):
         """Advance node 1 time increment. Returns amount of energy transferred.
-        Should not be run except through Network.tick().
+        Should not be run except through Network().
         >>> n = Network()
         >>> n[1][2] = 2
         >>> n[1].energy = 3
-        >>> n[1].tick()
+        >>> n[1]()
         2
         """
         if not self.energy: #nothing to do
@@ -124,11 +124,11 @@ class Node(WVertex):
 class Network(Graph):
     """Flow network class."""
 
-    __slots__ = ['_current_state']
+    __slots__ = ['ticks', '_current_state']
 
     def __init__(self, init={}, VertexType=Node):
         super(Network, self).__init__(init, VertexType)
-        self._current_state=0
+        self.ticks = self._current_state = 0
 
     def add(self, head, tail=[], capacity=DEFAULT_CAPACITY, edge_collision=ADD):
         """Like Graph.add, but will accumulate edge values, instead of
@@ -141,34 +141,35 @@ class Network(Graph):
         """
         super(Network, self).add(head, tail, capacity, edge_collision)
                     
-    def tick(self, count=1):
+    def __call__(self, count=1):
         """Advance network count time increments, defaults to 1.
         >>> n = Network()
         >>> n.add(1, 2, 2)
         >>> n.add(2, 3)
         >>> n.add(3, 1)
         >>> n[1].energy += 4
-        >>> n.tick()
+        >>> n()
         >>> print n.nodes()
         {1: 2, 2: 2, 3: 0}
-        >>> n.tick()
+        >>> n()
         >>> print n.nodes()
         {1: 0, 2: 3, 3: 1}
         >>> n[1].energy += 4
-        >>> n.tick(2)
+        >>> n(2)
         >>> print n.nodes()
         {1: 2, 2: 5, 3: 1}
         >>> n.discard(3, 1)
         >>> n.add(2, 1)
-        >>> n.tick(100)
+        >>> n(100)
         >>> print n.nodes()
         {1: 0, 2: 0, 3: 8}
         """
         assert count>=0
         for tic in range(count):
+            self.ticks += 1
             flow = 0
             for node in self.itervalues():
-                flow += abs(node.tick())
+                flow += abs(node())
             self._current_state = not self._current_state
             if flow == 0: break
 
@@ -193,10 +194,10 @@ class Network(Graph):
         >>> n[1][2] = 2
         >>> n[2][3] = 1
         >>> n[1].energy = 4
-        >>> n.tick()
+        >>> n()
         >>> n.flow
         2
-        >>> n.tick()
+        >>> n()
         >>> n.flow
         3
         """

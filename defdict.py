@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 # Mark Janssen, <average@mit.edu> July 1, 2002
 
-"""Dictionary with default values."""
+"""Dictionary with default values, collision function, and sorted string output."""
 
-__version__ = "$Revision: 2.1 $"
+__version__ = "$Revision: 2.2 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/07/10 22:33:51 $"
+__date__    = "$Date: 2002/07/31 22:51:13 $"
 
 import exceptions
 import copy
@@ -42,12 +42,10 @@ class defdict(dict):
     (defdict, key, new_value) as parameters.
     """
     #XXX may wish to have collision method instead of constantly passing as parameter
-    #perhaps update and setdefault should take copydef parameter instead of setting attribute:
-    #  could assume copydef=0 for setdefault and =1 for update.
     
-    __slots__ = ['default', 'copydef']
+    __slots__ = ['default']
     
-    def __init__(self, init={}, default=None, collision=OVERWRITE, copydef=0):
+    def __init__(self, init={}, default=None, collision=OVERWRITE):
         """Create dictionary and initialize with mapping or sequence
         object, if given.  
         
@@ -101,7 +99,7 @@ class defdict(dict):
         {'a': 3, 'b': 2, 'c': 1}
         """
 
-        self.default, self.copydef = default, copydef
+        self.default = default
         if collision == OVERWRITE or isinstance(init, dict) or init==[]:
             try:
                 dict.__init__(self, init)
@@ -153,8 +151,8 @@ class defdict(dict):
             else:   #other dict may contain keys in self
                 for key, value in other.iteritems():
                     self.setdefault(key, value, collision)
-        else:  #sequence
-            for key in other:
+        else:  #sequence 
+            for key in other:   #XXX slower than necessary since setdefault will check default each time and return unused value
                 self.setdefault(key, default, collision)
             
     def setdefault(self, key, value = USE_DEFAULT, collision=RETAIN):
@@ -183,36 +181,25 @@ class defdict(dict):
         >>> print dd
         {'a': 5, 'b': 12, 'c': 10}
 
-        Default value will be copied if copydef attribute is non-zero.
+        Default value is copied if non-simple type (ex. list, dict).
 
-        >>> dd = defdict(default=[], copydef=1)
+        >>> dd = defdict(default=[])
         >>> dd.setdefault(1), dd.setdefault(2)
         ([], [])
         >>> assert dd[1] is not dd[2]  #keys 1 and 2 have distinct value objects
         >>> dd[2].append(42)
         >>> print dd
         {1: [], 2: [42]}
-        >>> dd.copydef = 0      #now any default values used will use same, shared object
-        >>> dd.setdefault(0)    #add key 0, value is dd.default
-        []
-        >>> dd[0].append(64)
-        >>> dd.default, dd      #note that dd.default has changed with dd[0]
-        ([64], {0: [64], 1: [], 2: [42]})
-        >>> assert dd[0] is dd.default
-        >>>
         """
         key_absent = key not in self   #fail immediately if key unhashable
         if value == USE_DEFAULT:
-            if not self.copydef:
-                value = self.default
-            else:
-                value = copy.copy(self.default)
-        if key_absent or collision == OVERWRITE:
+            value = copy.copy(self.default) #could consider using property and assigning read method based on (copy(default) is default)
+        if collision == OVERWRITE or key_absent:
             self[key] = value
             return value
         else:
             collision(self, key, value)
-            return self[key]
+            return dict.__getitem__(self, key)  #may wish to allow dd[key] to insert key in dd with default value
         
     def get(self, key, *args):
         """Behaves like standard dict.get, but uses value in
@@ -227,15 +214,34 @@ class defdict(dict):
         if not args: args = (self.default,)
         return dict.get(self, key, *args)
 
+    def __getitem__(self, key):
+        """Return value of given key.  If key not in self, then create key with default value.
+        
+        >>> dd = defdict(default=0)
+        >>> dd[1]
+        0
+        >>> print dd
+        {1: 0}
+        """
+        try:
+            return dict.__getitem__(self, key)
+        except KeyError:
+            value = copy.copy(self.default)
+            self[key] = value
+            return value
+            
     def copy(self):
         """Return shallow copy of dictionary.
-        >>> dd = defdict(range(5), 5, copydef=1)
+        >>> dd = defdict(range(5), 5)
         >>> ddcopy = dd.copy()
-        >>> print ddcopy.default, ddcopy.copydef, type(ddcopy); print ddcopy
-        5 1 <class 'defdict.defdict'>
+        >>> print ddcopy.default, type(ddcopy); print ddcopy
+        5 <class 'defdict.defdict'>
         {0: 5, 1: 5, 2: 5, 3: 5, 4: 5}
+        >>> ddcopy[0] = 7
+        >>> print dd[0], ddcopy[0]
+        5 7
         """
-        return self.__class__(self, self.default, copydef=self.copydef)
+        return self.__class__(self, self.default)
         
     def __str__(self, format_string="%r: %r"):
         """Convert self to string with keys in sorted order.

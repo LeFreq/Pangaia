@@ -3,9 +3,9 @@
 
 """Graph class."""
 
-__version__ = "$Revision: 2.8 $"
+__version__ = "$Revision: 2.9 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/08/03 01:09:28 $"
+__date__    = "$Date: 2002/08/09 22:14:18 $"
 
 #change a lot of these for loops to use faster map() function (see FAQ and QuickReference)
 #also: map/reduce/filter now work with any iterable object (including dictionaries!)
@@ -17,6 +17,7 @@ __date__    = "$Date: 2002/08/03 01:09:28 $"
 
 from __future__ import generators
 from defdict import *
+import operator     #for WVertex.sum_out()
 
 #EdgeBaseType = int
 VertexBaseType = defdict
@@ -47,21 +48,6 @@ class Vertex(VertexBaseType):
         super(Vertex, self).__init__(init, edge_value, collision)
         if init and not isinstance(init, dict): graph.add(init) #ensure tails are in graph
 
-    def setdefault(self, tail, edge_value=USE_DEFAULT, collision=RETAIN):
-        """Does defdict.setdefault with addition of adding tails to graph, if necessary.
-        >>> g = Graph()
-        >>> g[5].setdefault(2)  #unless otherwise specified, will use default edge value
-        1
-        >>> print g             #note new vertex 2
-        {2: {}, 5: {2}}
-        
-        This method provided for completeness and to ensure preservation of Graph
-        invariants.  Vertex.add() is recommended method.
-        """
-        if tail not in self._graph:
-            self._graph.add(tail)
-        return super(Vertex, self).setdefault(tail, edge_value, collision)
-        
     def add(self, tail, edge_value=USE_DEFAULT, collision=OVERWRITE_DEFAULT):
         """Add the tails to Vertex with optional edge value.  Add tails to graph if needed.
         >>> g = Graph(VertexType=WVertex)
@@ -130,7 +116,7 @@ class Vertex(VertexBaseType):
         >>> g = Graph()
         >>> g.add(1, [2, 3, 4])
         >>> g.add(2, [3, 2])
-        >>> map(None, g[2].in_vertices())      #XXX arbitrary order
+        >>> list(g[2].in_vertices())      #XXX arbitrary order
         [1, 2]
         """
         for head in self._graph.itervalues():
@@ -138,7 +124,7 @@ class Vertex(VertexBaseType):
                 yield head._id
 
     out_vertices = VertexBaseType.iterkeys
-
+    
     def in_degree(self):
         """Return number of edges pointing into vertex.
         >>> g = Graph()
@@ -147,14 +133,28 @@ class Vertex(VertexBaseType):
         >>> g[1].in_degree(), g[2].in_degree(), g[4].in_degree()
         (0, 2, 1)
         """
-        return len(map(None, self.in_vertices()))
+        return len(list(self.in_vertices()))
 
     out_degree = VertexBaseType.__len__
 
+    def __setitem__(self, tail, value):
+        """Set edge value.  If tail does not exist, it is created and added to graph
+        if necessary.
+        >>> g = Graph(VertexType=WVertex)
+        >>> g[1][3]     #XXX should return 1 or 0?
+        1
+        >>> g[1][2] = 3
+        >>> print g
+        {1: {2: 3, 3: 1}, 2: {}, 3: {}}
+        """
+        if tail not in self._graph:
+            self._graph.add(tail)
+        super(Vertex, self).__setitem__(tail, value)
+ 
     def __eq__(self, other):
         """Return non-zero if all edges in self are present in other with same weight."""
         #XXX when does one vertex equal another?
-        return (type(self) == type(other) and
+        return (type(self) == type(other) and   #isinstance(other, type(self))? --allows subclass of self
                 self._id == other._id) #XXX and super(Vertex, self).__eq__(other)) 
                 #XXX and self.in_vertices()==other.in_vertices())
 
@@ -184,8 +184,8 @@ class Vertex(VertexBaseType):
 
     def validate(self):
         """Assert Vertex invariants."""
-        assert isinstance(self._graph, Graph)
         hash(self._id) #id should be hashable
+        assert isinstance(self._graph, Graph)
         assert self._id in self._graph
         for t in self:
             assert t in self._graph, "Non-existant tail %r in vertex %r" % (t, self._id)
@@ -220,7 +220,7 @@ class VMixin:
         >>> g[1].sum_out(), g[2].sum_out()
         (6, 0)
         """
-        return reduce(lambda t1, t2: t1+t2, self.itervalues(), 0)  #use operator.add instead of lambda?
+        return reduce(operator.add, self.itervalues(), 0)
 
     def __str__(self, format_string="%r: %r"):
         """Return string of tail vertices with edge weight values.
@@ -317,7 +317,7 @@ class Graph(GraphBaseType):
         except TypeError:  #multiple head addition
             if not isinstance(head, list): raise "head must be hashable object or list type"
             for h in head:  #XXX will add same tails multiple times
-                self.add(h, tail, edge_value, edge_collision)
+                self[h].update(tail, edge_value, edge_collision)
 
     def discard(self, head, tail=[]):
         """Remove vertices and/or edges.  Parameters can be single vertex or list of vertices.
@@ -362,7 +362,7 @@ class Graph(GraphBaseType):
     #out_vertices = GraphBaseType.__getitem__  #XXX returns dict, unlike in_vertices() which returns iterator
     vertices = GraphBaseType.iterkeys
     order = GraphBaseType.__len__
-    #__setitem__ #for some reason is called for self[v] -= [tails] so can't remove from interface
+    #__setitem__  #allow g[id] = VertexType | dict ...?
 
     def __getitem__(self, vertex):
         """Return value of corresponding key.  If key does not exist, create it
@@ -375,23 +375,25 @@ class Graph(GraphBaseType):
         try:
             return dict.__getitem__(self, vertex)
         except KeyError:
-            self[vertex] = value = self.VertexType(self, vertex)
+            value = self[vertex] = self.VertexType(self, vertex)
             return value
 
     def popitem(self):
         """Remove and return one arbitrary vertex, edge tuple.  Preserve graph invariants.
         >>> g = Graph()
         >>> g.add(range(3),range(3))
-        >>> id = g.popitem()[0]
-        >>> assert id not in g and len(g)==2
+        >>> id, vertex = g.popitem()
+        >>> assert id not in g and len(g)==2 and len(vertex)==0
         >>> for v in g.itervalues():
         ...     assert id not in v and len(v)==2
         """
-        #XXX doctest assumes dictionary order
-        for v, tails in self.iteritems(): break  #XXX any better way?
-        tails = tails.copy()  #must make copy since we have the actual object which is about to be deleted.
-        del self[v]  #removes any edges as necessary
-        return (v, tails)
+        vid, vertex = super(Graph, self).popitem()
+        for h in vertex.in_vertices():
+            del self[h][vid]
+        vertex.clear()
+        vertex._graph = Graph(VertexType=type(vertex))  #XXX too expensive, should set to None but breaks various vertex methods
+        vertex._graph[vid] = vertex
+        return (vid, vertex)
 
     def update(self, other, default=None, collision=MERGE_VERTEX):
         """Merges one graph with another.  All vertices will be convertex to VertexType.  Takes union of edge lists.
@@ -430,6 +432,20 @@ class Graph(GraphBaseType):
             del self[v][head]
         super(Graph, self).__delitem__(head)
 
+    def copy(self):
+        """Make a copy of the graph.
+        >>> g = Graph()
+        >>> g.add(5, 1, 7)
+        >>> g2 = g.copy()
+        >>> g[5][1] += 2    #should not change value in g2
+        >>> g[5].add(2)
+        >>> type(g2), g2 
+        (<class 'graph.Graph'>, {1: {}, 5: {1: 7}})
+        """
+        return self.__class__(self, self.VertexType)
+        
+    __copy__ = copy
+        
     def __str__(self, format_string="%r: %s"):
         """Return graph in adjacency format.
         >>> g = Graph()
@@ -445,14 +461,12 @@ class Graph(GraphBaseType):
         return super(Graph, self).__str__(format_string)
         #return '{' + ', '.join(map(str, self.itervalues())) + '}'
 
-    #__repr__ = __str__
-
     def validate(self):
         """Check graph invariants."""
         #NOTE:  calling this after each add/discard slows things down considerably!
-        for v in self:
-            assert isinstance(self[v], self.VertexType), "vertex type not found on " + str(v)
-            self[v].validate()
+        for vid, v in self.iteritems():
+            assert isinstance(v, self.VertexType), "vertex type not found on " + str(vid)
+            v.validate()
 
 # }}} Graph
 

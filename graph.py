@@ -3,9 +3,9 @@
 
 """Graph class."""
 
-__version__ = "$Revision: 2.7 $"
+__version__ = "$Revision: 2.8 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/07/11 00:13:39 $"
+__date__    = "$Date: 2002/08/03 01:09:28 $"
 
 #change a lot of these for loops to use faster map() function (see FAQ and QuickReference)
 #also: map/reduce/filter now work with any iterable object (including dictionaries!)
@@ -50,7 +50,6 @@ class Vertex(VertexBaseType):
     def setdefault(self, tail, edge_value=USE_DEFAULT, collision=RETAIN):
         """Does defdict.setdefault with addition of adding tails to graph, if necessary.
         >>> g = Graph()
-        >>> g.add(5)
         >>> g[5].setdefault(2)  #unless otherwise specified, will use default edge value
         1
         >>> print g             #note new vertex 2
@@ -70,7 +69,7 @@ class Vertex(VertexBaseType):
         >>> g[5].add(5)     #edges pointing back to self are allowed
         >>> g[5].add(7, 42) #add single out-edge from vertex 5 to 7 with weight 42
         >>> assert 7 in g   #vertex 7 automatically added to graph
-        >>> g[5].add([3, 2, 4])   #add 4 out edges from 5, default weight 1
+        >>> g[5].add([3, 2, 4])   #add 3 out edges from 5, default weight 1
         >>> print g[5]      #show out-edges from vertex 5
         {2: 1, 3: 1, 4: 1, 5: 1, 7: 42}
         >>> g[5].add(7, 24) #edge values are over-written
@@ -90,15 +89,18 @@ class Vertex(VertexBaseType):
     def update(self, tails, edge_value=USE_DEFAULT, collision=OVERWRITE):
         """Like dict.update, but will also add tails to Graph.
         >>> g = Graph(VertexType=WVertex)
-        >>> g.add(5)
         >>> g[5].update([1, 3, 5], 2)  #add the three tail vertices to vertex 5 with weight 2
         >>> print g[5]
         {1: 2, 3: 2, 5: 2}
         >>> assert 1 in g and 3 in g and 5 in g     #the vertices are now in the graph
         """
+        #XXX get rid of super call and just put simplified defdict.update here, since will need to loop anyway (unless: add flag to indicate tails already in graph)
         super(Vertex, self).update(tails, edge_value, collision)
-        for t in tails:  #could be dict or sequence type  #XXX use of super.update forces to loop again here
-            self._graph.add(t)
+        if isinstance(tails, dict): #XXX hack: if dict, then defdict.update doesn't call setdefault; hence, no check to add tail to graph
+            g = self._graph
+            for t in tails:  
+                if t not in g:
+                    g.add(t)
 
     def discard(self, tail):
         """Removes tail(s) if present, otherwise does nothing.
@@ -151,9 +153,9 @@ class Vertex(VertexBaseType):
 
     def __eq__(self, other):
         """Return non-zero if all edges in self are present in other with same weight."""
+        #XXX when does one vertex equal another?
         return (type(self) == type(other) and
-                self._id == other._id and
-                super(Vertex, self).__eq__(other)) 
+                self._id == other._id) #XXX and super(Vertex, self).__eq__(other)) 
                 #XXX and self.in_vertices()==other.in_vertices())
 
     def __str__(self, format_string="%r"):  #could use "%r%r\b \b" but would fail doctests
@@ -186,7 +188,7 @@ class Vertex(VertexBaseType):
         hash(self._id) #id should be hashable
         assert self._id in self._graph
         for t in self:
-            assert t in self._graph, "Non-existant tail %s in vertex %s" % (t, self._id)
+            assert t in self._graph, "Non-existant tail %r in vertex %r" % (t, self._id)
 # }}} Vertex
 # {{{ VMixin
 class VMixin:
@@ -273,7 +275,7 @@ class Graph(GraphBaseType):
                 raise TypeError, "can only initialize Graph with Graph object"
             self.update(initgraph)  #will copy vertices to VertexType
 
-    def add(self, head, tail=[], edge_value=EDGEVALUE, edge_collision=OVERWRITE):
+    def add(self, head, tail=[], edge_value=EDGEVALUE, edge_collision=OVERWRITE_DEFAULT):
         """Add the vertices and/or edges.
         Parameters can be single vertex or list of vertices.
         If no second parameter given, assume vertex addition only.
@@ -292,9 +294,10 @@ class Graph(GraphBaseType):
         >>> g.add(2, 1)         #edge from vertex 2 to vertex 1
         >>> g.add(1, 5, 100)    #edge from 1 to new vertex 5 with weight 100
         >>> g.add(1, 5, 90)     #adding existing edge, edge value overwritten
-        >>> g.add(3, 3)         #loops are allowed
+        >>> g.add(3, 3, 2)      #loops are allowed
+        >>> g.add(3, 3)         #edge weight perserved if not specified
         >>> print g
-        {1: {5: 90}, 2: {1: 1}, 3: {3: 1}, 4: {}, 5: {}}
+        {1: {5: 90}, 2: {1: 1}, 3: {3: 2}, 4: {}, 5: {}}
         
         Vertex lists allowed on either parameter for multiple edge addition.
 
@@ -310,10 +313,7 @@ class Graph(GraphBaseType):
         #XXX if no edge_value given, then value should not be overwritten
         if not isinstance(tail, list): tail = [tail]
         try:  #single head addition
-            if head not in self:    #check to avoid infinite loop
-                self[head] = self.VertexType(self, head, tail, edge_value, edge_collision)
-            elif tail:
-                self[head].update(tail, edge_value, edge_collision)
+            self[head].update(tail, edge_value, edge_collision)
         except TypeError:  #multiple head addition
             if not isinstance(head, list): raise "head must be hashable object or list type"
             for h in head:  #XXX will add same tails multiple times
@@ -359,10 +359,24 @@ class Graph(GraphBaseType):
         if _DEBUG: self.validate()
 
     #alternate syntax for various items
-    out_vertices = GraphBaseType.__getitem__  #XXX returns dict, unlike in_vertices() which returns iterator
+    #out_vertices = GraphBaseType.__getitem__  #XXX returns dict, unlike in_vertices() which returns iterator
     vertices = GraphBaseType.iterkeys
     order = GraphBaseType.__len__
     #__setitem__ #for some reason is called for self[v] -= [tails] so can't remove from interface
+
+    def __getitem__(self, vertex):
+        """Return value of corresponding key.  If key does not exist, create it
+        with default value.
+        >>> g = Graph()
+        >>> g[1].add([1,2])
+        >>> print g
+        {1: {1, 2}, 2: {}}
+        """
+        try:
+            return dict.__getitem__(self, vertex)
+        except KeyError:
+            self[vertex] = value = self.VertexType(self, vertex)
+            return value
 
     def popitem(self):
         """Remove and return one arbitrary vertex, edge tuple.  Preserve graph invariants.
@@ -411,7 +425,7 @@ class Graph(GraphBaseType):
         ...
         KeyError: 2
         """
-        self[head].clear() #removes out vertices
+        dict.__getitem__(self, head).clear() #removes out vertices (bypass key creation with dict.__getitem__)
         for v in self[head].in_vertices():
             del self[v][head]
         super(Graph, self).__delitem__(head)
@@ -436,33 +450,33 @@ class Graph(GraphBaseType):
     def validate(self):
         """Check graph invariants."""
         #NOTE:  calling this after each add/discard slows things down considerably!
-        for v in self.vertices():
+        for v in self:
             assert isinstance(self[v], self.VertexType), "vertex type not found on " + str(v)
             self[v].validate()
 
 # }}} Graph
 
-def profile(g):
+def gprofile(g, size=100):
     import time
     print "Profiling (ignoring debug)..."
     _DEBUG = 0
     for i in [1,2]:
         start=time.clock()
-        g.add(range(1000),range(100,1100))
+        g.add(range(size),range(100,size + 100))
         finish=time.clock()
-        print "Add 1000, 100-1100; pass %i: %5.2fs" %  (i, (finish-start))
+        print "Add %i, 100-(%i+100); pass %i: %5.2fs" %  (size, size, i, (finish-start))
     for i in [1,2]:
         start=time.clock()
-        g.discard(range(1050), range(100))#, range(1000))
+        g.discard(range(size + 50), range(100))#, range(1000))
         finish=time.clock()
-        print "Discard 1050, 100; pass %i:  %5.2fs" % (i, (finish-start))
+        print "Discard (%i+50), 100; pass %i:  %5.2fs" % (size, i, (finish-start))
     g.clear()
     g.add(0)
     for i in [1,2]:
         start=time.clock()
-        g[0].update(range(1000))
+        g[0].update(range(size))
         finish=time.clock()
-        print "Update 1000, 1000; pass %i:  %5.2fs" % (i, (finish-start))
+        print "Update %i, %i; pass %i:  %5.2fs" % (size, size, i, (finish-start))
     g.clear()
 
 def _test():

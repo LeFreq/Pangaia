@@ -3,9 +3,9 @@
 
 """Graph class."""
 
-__version__ = "$Revision: 2.9 $"
+__version__ = "$Revision: 2.10 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/08/09 22:14:18 $"
+__date__    = "$Date: 2002/08/11 08:02:50 $"
 
 #change a lot of these for loops to use faster map() function (see FAQ and QuickReference)
 #also: map/reduce/filter now work with any iterable object (including dictionaries!)
@@ -42,11 +42,12 @@ class Vertex(VertexBaseType):
     __slots__ = ['_graph', '_id']  #Put all Vertex attributes here.  Uses base class' dictionary, instead of creating duplicate
 
     def __init__(self, graph, id, init={}, edge_value=EDGEVALUE, collision=OVERWRITE):
-        """Create a vertex object in graph.  Assumes id already in graph."""
+        """Create a vertex object in graph.  Assumes id already in graph. 
+        Will add tails in init as necessary."""
         self._graph = graph  #graph to which this vertex belongs
         self._id = id
         super(Vertex, self).__init__(init, edge_value, collision)
-        if init and not isinstance(init, dict): graph.add(init) #ensure tails are in graph
+        if init: graph.add(list(init)) #ensure tails are in graph
 
     def add(self, tail, edge_value=USE_DEFAULT, collision=OVERWRITE_DEFAULT):
         """Add the tails to Vertex with optional edge value.  Add tails to graph if needed.
@@ -72,7 +73,7 @@ class Vertex(VertexBaseType):
             if not isinstance(tail, list): raise TypeError("argument must be hashable type or a list object.")
             self.update(tail, edge_value, collision)
             
-    def update(self, tails, edge_value=USE_DEFAULT, collision=OVERWRITE):
+    def update(self, tails, edge_value=USE_DEFAULT, collision=OVERWRITE_DEFAULT):
         """Like dict.update, but will also add tails to Graph.
         >>> g = Graph(VertexType=WVertex)
         >>> g[5].update([1, 3, 5], 2)  #add the three tail vertices to vertex 5 with weight 2
@@ -169,7 +170,7 @@ class Vertex(VertexBaseType):
         if not self: return '{}'    #nothing to sort
         keys = self.keys()
         keys.sort()
-        return '{' + ', '.join([format_string % k for k in keys]) + '}'
+        return '{%s}' % ', '.join([format_string % k for k in keys])
 
     def copy(self):
         """Make a copy of the vertex tail set.
@@ -268,6 +269,7 @@ class Graph(GraphBaseType):
         >>> print g2
         {1: {2, 3}, 2: {2, 3}, 3: {2, 3}}
         """
+        if not isinstance(VertexType, type(Vertex)): raise TypeError, "Invalid vertex type"
         self.VertexType = VertexType
         super(Graph, self).__init__()
         if initgraph:
@@ -275,7 +277,7 @@ class Graph(GraphBaseType):
                 raise TypeError, "can only initialize Graph with Graph object"
             self.update(initgraph)  #will copy vertices to VertexType
 
-    def add(self, head, tail=[], edge_value=EDGEVALUE, edge_collision=OVERWRITE_DEFAULT):
+    def add(self, head, tail=[], edge_value=EDGEVALUE):
         """Add the vertices and/or edges.
         Parameters can be single vertex or list of vertices.
         If no second parameter given, assume vertex addition only.
@@ -313,11 +315,11 @@ class Graph(GraphBaseType):
         #XXX if no edge_value given, then value should not be overwritten
         if not isinstance(tail, list): tail = [tail]
         try:  #single head addition
-            self[head].update(tail, edge_value, edge_collision)
+            self[head].update(tail, edge_value)
         except TypeError:  #multiple head addition
             if not isinstance(head, list): raise "head must be hashable object or list type"
             for h in head:  #XXX will add same tails multiple times
-                self[h].update(tail, edge_value, edge_collision)
+                self[h].update(tail, edge_value)
 
     def discard(self, head, tail=[]):
         """Remove vertices and/or edges.  Parameters can be single vertex or list of vertices.
@@ -364,6 +366,25 @@ class Graph(GraphBaseType):
     order = GraphBaseType.__len__
     #__setitem__  #allow g[id] = VertexType | dict ...?
 
+#    def __contains__(self, vid):
+#        """Returns non-zero if v in self.  If a list is given, all
+#        items are checked for containment.
+#        >>> g = Graph()
+#        >>> g[1].add([1, 2, 2, 3])
+#        >>> 1 in g and 2 in g
+#        1
+#        >>> [1, 2, 3] in g
+#        1
+#        >>> [1, 4] in g
+#        0
+#        """
+#        #XXX resursive slow
+#        try:
+#            return dict.__contains__(self, vid)
+#        except TypeError:   #must have been given list
+#            if not vid: return 1
+#            else: return vid[-1] in self and vid[:-1] in self
+
     def __getitem__(self, vertex):
         """Return value of corresponding key.  If key does not exist, create it
         with default value.
@@ -407,11 +428,11 @@ class Graph(GraphBaseType):
         >>> g1.validate()
         """
         assert isinstance(other, Graph), "Can only merge Graph types."
-        for h in other:
-            if h in self:  #do union of edge sets
-                collision(self, h, other[h])
+        for vid, vertex in other.iteritems():
+            if vid in self:  #do union of edge sets
+                collision(self, vid, vertex)
             else:   #otherwise need to copy the set
-                self[h] = self.VertexType(self, h, other[h], other[h].default) #XXX shallow copy
+                self[vid] = self.VertexType(self, vid, vertex, vertex.default) #XXX shallow copy
 
     def __delitem__(self, head):
         """Delete a single vertex and associated edges.
@@ -459,7 +480,7 @@ class Graph(GraphBaseType):
         """
         if _DEBUG: self.validate()
         return super(Graph, self).__str__(format_string)
-        #return '{' + ', '.join(map(str, self.itervalues())) + '}'
+        #return '{%s}' % ', '.join(map(str, self.itervalues()))
 
     def validate(self):
         """Check graph invariants."""

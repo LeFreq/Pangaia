@@ -3,9 +3,11 @@
 
 """Network class for flow networks."""
 
-__version__ = "$Revision: 2.2 $"
+__version__ = "$Revision: 2.3 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/08/05 04:09:27 $"
+__date__    = "$Date: 2002/08/06 22:47:25 $"
+
+#Add Network.time to track how many ticks
 
 import random
 from graph import *
@@ -38,10 +40,30 @@ class Node(WVertex):
         super(Node, self).add(sink, capacity, collision)
     
     def update(self, sinks, capacity=DEFAULT_CAPACITY, collision=ADD):
+        """Update arcs leaving node.  If arc already exists, capacity is
+        add to existing value; if not, it is created with default capacity.
+        >>> n = Network()
+        >>> n[1].update([1, 1, 2, 3, 1])
+        >>> print n[1]
+        0 {1: 3, 2: 1, 3: 1}
+        >>> n[1].update({2: 3, 4: 2})
+        >>> print n[1]
+        0 {1: 3, 2: 4, 3: 1, 4: 2}
+        >>> n[1].update([5, 1], 3)
+        >>> print n[1]
+        0 {1: 6, 2: 4, 3: 1, 4: 2, 5: 3}
+        """
         super(Node, self).update(sinks, capacity, collision)
     
     def tick(self):
-        """Advance node 1 time increment. Returns amount of energy transferred."""
+        """Advance node 1 time increment. Returns amount of energy transferred.
+        Should not be run except through Network.tick().
+        >>> n = Network()
+        >>> n[1][2] = 2
+        >>> n[1].energy = 3
+        >>> n[1].tick()
+        2
+        """
         if not self.energy: #nothing to do
             self.energy_out = 0
             return 0
@@ -109,6 +131,14 @@ class Network(Graph):
         self._current_state=0
 
     def add(self, head, tail=[], capacity=DEFAULT_CAPACITY, edge_collision=ADD):
+        """Like Graph.add, but will accumulate edge values, instead of
+        overwriting them.  See Graph.add.__doc__.
+        >>> n = Network()
+        >>> n.add(1, [2, 3], 2)
+        >>> n.add(1, 2)
+        >>> print n
+        {1: 0 {2: 3, 3: 2}, 2: 0 {}, 3: 0 {}}
+        """
         super(Network, self).add(head, tail, capacity, edge_collision)
                     
     def tick(self, count=1):
@@ -143,7 +173,13 @@ class Network(Graph):
             if flow == 0: break
 
     def node_energy(self):
-        """Returns total amount of energy in nodes."""
+        """Returns total amount of energy in nodes.
+        >>> n = Network()
+        >>> n[1].energy = 4
+        >>> n[3].energy = -1
+        >>> n.energy
+        3
+        """
         sum = 0
         for n in self.itervalues():
             sum += n.energy
@@ -152,7 +188,18 @@ class Network(Graph):
     energy = property(node_energy, None, None, "Total energy in network.")
 
     def _flow(self):
-        """Returns total amount of energy moved."""
+        """Returns total amount of energy moved in last tick.
+        >>> n = Network()
+        >>> n[1][2] = 2
+        >>> n[2][3] = 1
+        >>> n[1].energy = 4
+        >>> n.tick()
+        >>> n.flow
+        2
+        >>> n.tick()
+        >>> n.flow
+        3
+        """
         sum = 0
         for n in self.itervalues():
             sum += n.energy_out
@@ -161,7 +208,15 @@ class Network(Graph):
     flow = property(_flow, None, None, "Total energy moved on last tick.")
         
     def nodes(self):
-        """Return string of node: energy items."""
+        """Return string of node: energy items.
+        >>> n = Network()
+        >>> n[1][2] = 2
+        >>> n[2][3] = 1
+        >>> n[1].energy += 3
+        >>> n[2].energy += 2
+        >>> n.nodes()
+        '{1: 3, 2: 2, 3: 0}'
+        """
         if not self: return '{}'    #nothing to sort
         keys = self.keys()
         keys.sort()

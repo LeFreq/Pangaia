@@ -1,11 +1,11 @@
 #!/usr/bin/env python
-# Mark Janssen, <average@mit.edu> July 1, 2002
+# Mark Janssen,  July 1, 2002
 
 """Bag types"""
 
-__version__ = "$Revision: 2.3 $"
+__version__ = "$Revision: 2.4 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/08/11 07:53:23 $"
+__date__    = "$Date: 2003/04/24 09:24:57 $"
 
 import operator
 
@@ -13,6 +13,7 @@ import operator
 #   in addition to min/max(), perhaps create most/least() to return the item with the highest/lowest count
 #XXX figure out what should happen: bag[nokey] -= 5, bag[key] -=5
 #XXX checking in setitem takes too much time: create compress function that removes zero-valued items periodically
+#create bag attribute to hold size of bag and calculate only when bag has been written to.
 
 IntegerType = (int, long)
 
@@ -60,6 +61,7 @@ class imbag(dict):
         ...
         TypeError: unsupported operand types for +: 'int' and 'str'
         """
+        #XXX may be able to improve this using map and operator functions
         for key, count in items.iteritems():
             if key in self:
                 newvalue = dict.__getitem__(self, key) + count
@@ -71,6 +73,7 @@ class imbag(dict):
         if not isinstance(items, imbag): self._validate()
     
     def pop(self):
+        """Removes and returns one item from the bag."""
         raise NotImplemented #XXX
     
     def discard(self, item, count=None):
@@ -222,7 +225,7 @@ class imbag(dict):
         >>> b[1] = "oops"
         Traceback (most recent call last):
         ...
-        TypeError: count must be integral type, not <type 'str'>
+        TypeError: count must be integral type, not 
         """
         if not isinstance(count, IntegerType): raise TypeError, "count must be integral type, not %r" % type(count)
         elif count:
@@ -300,6 +303,8 @@ class bag(imbag):
         6
         """
         return reduce(operator.add, self.itervalues(), 0)
+        
+    __abs__ = __len__
 
     def setdefault(self, key, count=1):
         #XXX perhaps remove this on bag

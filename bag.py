@@ -3,9 +3,9 @@
 
 """Bag types"""
 
-__version__ = "$Revision: 2.4 $"
+__version__ = "$Revision: 2.5 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2003/04/24 09:24:57 $"
+__date__    = "$Date: 2003/06/05 02:16:39 $"
 
 import operator
 
@@ -49,19 +49,20 @@ class imbag(dict):
         >>> b = imbag("abc")
         >>> b.update({'a': 2, 'b': 1, 'c': 0})
         >>> assert b == {'a': 3, 'b': 2, 'c': 1}
-        
+
         Negative updates are allowable.
         >>> b.update({'a': -2, 'b': -2, 'c': -2, 'd': 2})
         >>> assert b == {'a': 1, 'c': -1, 'd': 2}
-        
+
         Invalid values raise TypeError and may leave bag in
         unknown state:
         >>> b.update({0: 'test1', 'a': 'test2', 'd': 3, 'f': 1.0})
         Traceback (most recent call last):
         ...
-        TypeError: unsupported operand types for +: 'int' and 'str'
+        TypeError: unsupported operand type(s) for +: 'int' and 'str'
         """
         #XXX may be able to improve this using map and operator functions
+        #XXX what if dict values are floats?
         for key, count in items.iteritems():
             if key in self:
                 newvalue = dict.__getitem__(self, key) + count
@@ -71,11 +72,11 @@ class imbag(dict):
                 dict.__setitem__(self, key, count)
             #self[key] += count  #about twice as slow than above
         if not isinstance(items, imbag): self._validate()
-    
+
     def pop(self):
         """Removes and returns one item from the bag."""
         raise NotImplemented #XXX
-    
+
     def discard(self, item, count=None):
         """Removes count number of the specified item.  If count is not
         specified, then item is completely discarded.  If item does not
@@ -101,14 +102,14 @@ class imbag(dict):
         >>> assert b == {'a': 2, 'b': 1, 'c': 1}
         """
         for key in items:
-            if key in self:  
+            if key in self:
                 newvalue = dict.__getitem__(self, key) + 1
                 if newvalue: dict.__setitem__(self, key, newvalue)
                 else: del self[key]
             else:
                 dict.__setitem__(self, key, 1)
         return self
-            
+
     def __isub__(self, items):
         """Subtract items in iterable object from bag.
         >>> b = bag("abacab")
@@ -119,7 +120,7 @@ class imbag(dict):
         for item in items:
             self[item] -= 1
         return self
-        
+
     def __imul__(self, factor):
         """Multiply bag contents by factor.
         >>> b = imbag("abacab")
@@ -132,19 +133,19 @@ class imbag(dict):
         """
         if not isinstance(factor, IntegerType):
             raise TypeError, "unsupported operand type(s) for *: %r and %r" % (type(self), type(other))
-        if factor > 1 or factor < 0:
+        if factor:
             for item, count in self.iteritems():
                 dict.__setitem__(self, item, count*factor) #bypass test logic in bag.__setitem__
-        elif factor == 0:
+        else:   #factor==0
             self.clear()
         return self
-                
+
     def __eq__(self, other):
         """Equality test.  Can compare against dict or sequence type.
         >>> bag("abacab") == {'a': 3, 'b': 2, 'c': 1}
-        1
+        True
         >>> bag([1, 2, 1, 3, 1]) == [1, 1, 1, 3, 2]
-        1
+        True
         """
         if isinstance(other, list): other = self.__class__(other)
         return dict.__eq__(self, other)
@@ -159,25 +160,28 @@ class imbag(dict):
         """Returns zero if bag is empty, non-zero otherwise.
         >>> b = bag()
         >>> not b
-        1
+        True
         >>> b += [0]
         >>> not b
-        0
+        False
         """
         return dict.__len__(self)
-    
+
     def __len__(self):
-        """Returns sum of item counts in bag.
-        >>> b = imbag("abacab")
+        """Returns total number of items in bag.
+        >>> b = bag("abacab")
         >>> len(b)
         6
+
+        Returns sum of item counts for imbag.
+        >>> b = imbag(b)
         >>> b['a'] = -4
         >>> len(b)
         -1
         """
         #XXX len(b)!=len(list(b)) -- perhaps should return abs (or iter not return negatived keys)
-        return reduce(operator.add, self.itervalues(), 0)
-        
+        return sum(self.itervalues())
+
     def __abs__(self):
         """Returns sum of absolute value of item counts in bag.
         >>> b = imbag("abacab")
@@ -185,7 +189,7 @@ class imbag(dict):
         >>> abs(b)
         7
         """
-        return reduce(operator.add, map(abs, self.itervalues()), 0)
+        return sum(map(abs, self.itervalues()))
 
     def __getitem__(self, key):
         """Returns total count for given item.  If
@@ -209,56 +213,62 @@ class imbag(dict):
         >>> b[1] = 3
         >>> b[4] = 2L   #long values okay
         >>> assert b == {1: 3, 2: 1, 3: 1, 4: 2}
-        
-        If count is zero, all items are deleted from bag.  
+
+        If count is zero, all items are deleted from bag.
         >>> b[2] = 0
         >>> assert b == {1: 3, 3: 1, 4: 2}
-        
+
         Counts for imbag are allowed to be negative.
         >>> b[4] = -2
         >>> b[5] -= 2
         >>> b[1] -= 4
         >>> b[3] -= 1
         >>> assert b == {1: -1, 4: -2, 5: -2}
-        
+
         If count is non-integer, TypeError is raised.
         >>> b[1] = "oops"
         Traceback (most recent call last):
         ...
-        TypeError: count must be integral type, not 
+        TypeError: count must be integral type, not <type 'str'>
         """
         if not isinstance(count, IntegerType): raise TypeError, "count must be integral type, not %r" % type(count)
         elif count:
             dict.__setitem__(self, item, count)
-        else:   
+        else:
             try:  del self[item]
             except LookupError:  pass
-            
+
     def __iter__(self):
         """Will iterate through all items in bag individually.
-        >>> b = imbag("abacab")
+        >>> b = bag("abacab")
+        >>> l = list(b); l.sort()
+        >>> l
+        ['a', 'a', 'a', 'b', 'b', 'c']
+        >>> b = imbag(b)
         >>> b['b'] = -2
         >>> l = list(b); l.sort()
         >>> l
         ['a', 'a', 'a', 'b', 'b', 'c']
         """
         #XXX list(b) != imbag(list(b))
-        #XXX is there a better way than pre-constructing the whole list??
-        return iter(reduce(operator.add, [[key]*abs(count) for key, count in self.iteritems()], []))
-        
+        for key, count in self.iteritems():
+            for i in xrange(abs(count)):
+                yield key
+
     def __str__(self):
         """Convert self to string with items in sorted order.
         >>> str(imbag())
         '[]'
         >>> str(imbag({'b': -2, 'a': 3, 'c': 1}))
         "['a', 'a', 'a', 'b', 'b', 'c']"
+        >>> str(bag("abacab"))
+        "['a', 'a', 'a', 'b', 'b', 'c']"
         """
         #sort by values, largest first? should we sort at all?
         self._validate()
-        if not self: return '[]'    #nothing to sort
-        keys = self.keys()
-        keys.sort()
-        return str(reduce(operator.add, [[key]*abs(self[key]) for key in keys], []))
+        l = list(self)
+        l.sort()
+        return str(l)
 
     def _validate(self):
         remove_list = []
@@ -279,11 +289,15 @@ class bag(imbag):
     def __imul__(self, factor):
         """Multiply bag contents by factor.
         >>> b = bag("abacab")
-        >>> b*= 4
+        >>> b *= 4
         >>> assert b == {'a': 12, 'b': 8, 'c': 4}
-        
+
         Negative or zero factors will return empty bag.
-        >>> b*= -2
+        >>> b *= -2
+        >>> b
+        {}
+        >>> b += ['a', 'b', 'a']
+        >>> b *= 0
         >>> b
         {}
         """
@@ -292,19 +306,9 @@ class bag(imbag):
         if factor > 1:
             for item, count in self.iteritems():
                 dict.__setitem__(self, item, count*factor) #bypass test logic in bag.__setitem__
-        elif factor < 0:
+        elif factor <= 0:
             self.clear()    #duplicates list.__imul__ behavior
         return self
-
-    def __len__(self):
-        """Returns total number of items in bag.
-        >>> b = bag("abacab")
-        >>> len(b)
-        6
-        """
-        return reduce(operator.add, self.itervalues(), 0)
-        
-    __abs__ = __len__
 
     def setdefault(self, key, count=1):
         #XXX perhaps remove this on bag
@@ -314,14 +318,13 @@ class bag(imbag):
         else:  return dict.setdefault(self, key, count)
 
     def __setitem__(self, item, count=1):
-        """Like imbag.__setitem__, however if count is 
-        less than zero, ValueError is raised.
+        """Like imbag.__setitem__, however if count is less than zero, ValueError is raised.
         >>> b = bag([1, 2, 3, 4, 4])
         >>> b[4] = -2
         Traceback (most recent call last):
         ...
         ValueError: 4 depleted
-        
+
         #>>> b[5] = -2
         #Traceback (most recent call last):
         #...
@@ -338,7 +341,7 @@ class bag(imbag):
             else:
                 if count<0:
                     raise ValueError, "%r depleted" % item
-            
+
     def _validate(self):
         remove_list = []
         for key, count in self.iteritems():
@@ -349,34 +352,10 @@ class bag(imbag):
         for key in remove_list:
             del self[key]
 
-    def __iter__(self):
-        """Will iterate through all items in bag individually.
-        >>> b = bag("abacab")
-        >>> l = list(b); l.sort()
-        >>> l
-        ['a', 'a', 'a', 'b', 'b', 'c']
-        """
-        #XXX is there a better way than pre-constructing the whole list??
-        return iter(reduce(operator.add, [[key]*count for key, count in self.iteritems()], []))
-        
-    def __str__(self):
-        """Convert self to string with items in sorted order.
-        >>> str(bag())
-        '[]'
-        >>> str(bag("abacab"))
-        "['a', 'a', 'a', 'b', 'b', 'c']"
-        """
-        #sort by values, largest first? should we sort at all?
-        self._validate()
-        if not self: return '[]'    #nothing to sort
-        keys = self.keys()
-        keys.sort()
-        return str(reduce(operator.add, [[key]*self[key] for key in keys], []))
-
 
 def _test():
     import doctest, bag
-    return doctest.testmod(bag)
-    
+    return doctest.testmod(bag, isprivate=lambda i, j: 0)
+
 if __name__ == "__main__":
     _test()

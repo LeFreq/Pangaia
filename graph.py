@@ -3,9 +3,9 @@
 
 """Graph class."""
 
-__version__ = "$Revision: 2.0 $"
+__version__ = "$Revision: 2.1 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/07/06 23:50:00 $"
+__date__    = "$Date: 2002/07/07 06:08:50 $"
 
 #change a lot of these for loops to use faster map() function (see FAQ and QuickReference)
 #remember reduce(lambda x,y: x+y, [1,2,3,4,5]) works for summing all elements...
@@ -178,7 +178,7 @@ class Vertex(VertexBaseType):
         >>> g.add(5, 1)
         >>> v = g[5].copy()
         >>> type(v), v 
-        (<class 'graphdef.Vertex'>, {1: 1})
+        (<class 'graph.Vertex'>, {1: 1})
         """
         return self.__class__(self._graph, self._id, self)
         #XXX shallow copy assumes EDGEVALUE is simple type!
@@ -395,8 +395,8 @@ def test(g, size=100):
         g.clear()
 
 def _test():
-    import doctest, graphdef
-    return doctest.testmod(graphdef)
+    import doctest, graph
+    return doctest.testmod(graph)
 
 if __name__ == '__main__':
 #    g=Graph(VertexType=Vertex)

@@ -8,9 +8,9 @@ in another set), that set 'freezes', and becomes immutable.  See
 PEP-0218 for a full discussion.
 """
 
-__version__ = "$Revision: 1.3 $"
+__version__ = "$Revision: 1.4 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2001/09/26 03:30:17 $"
+__date__    = "$Date: 2001/09/26 03:37:10 $"
 
 from copy import deepcopy
 
@@ -26,6 +26,7 @@ class Set(dictionary):
         given a non-None value the first time the set's hashcode is
         calculated; the set is frozen thereafter."""
 
+        dictionary.__init__(self)
         if iterable is not None:
             for item in iterable:
                 self[item] = None

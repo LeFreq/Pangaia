@@ -3,9 +3,9 @@
 
 """Graph class."""
 
-__version__ = "$Revision: 2.2 $"
+__version__ = "$Revision: 2.3 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/07/08 04:59:21 $"
+__date__    = "$Date: 2002/07/08 23:58:26 $"
 
 #change a lot of these for loops to use faster map() function (see FAQ and QuickReference)
 #remember reduce(lambda x,y: x+y, [1,2,3,4,5]) works for summing all elements...
@@ -390,9 +390,9 @@ class Graph(GraphBaseType):
             del self[v][head]
         super(Graph, self).__delitem__(head)
 
-    def __str__(self):
+    def __str__(self, format_string="%r: %s"):
         if _DEBUG: self.validate()
-        return super(Graph, self).__str__()
+        return super(Graph, self).__str__(format_string)
         #return '{' + ', '.join(map(str, self.itervalues())) + '}'
 
     #__repr__ = __str__

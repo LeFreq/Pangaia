@@ -3,27 +3,27 @@
 
 """Dictionary with default values, collision function, and sorted string output."""
 
-__version__ = "$Revision: 2.5 $"
+__version__ = "$Revision: 2.6 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2003/06/17 06:22:13 $"
+__date__    = "$Date: 2003/07/04 00:38:56 $"
 
 import exceptions
 import copy
 
 class KeyAlreadyExists(exceptions.LookupError): pass
 class USE_DEFAULT:
-    """Dummy class used as value in function parameters to indicate 
+    """Dummy class used as value in function parameters to indicate
     no default value specified; i.e. use the value in defdict.default.
     Created special class to avoid clashing with possible value passed
     by user."""
-#XXX perhaps should have instantiate default which takes arbitrary 
+#XXX perhaps should have instantiate default which takes arbitrary
 # number of parameters that will be passed to value stored in defdict.default
 # to allow object creation.  defdict.add would check if isinstance(default, USE_DEFAULT)
 
 #define some useful collision functions
 #May wish to return an expression instead of setting ddict directly
 #  to allow lambda functions to be passed as collision functions.
-#  may sacrifice speed for cases when value modified in place
+#  may sacrifice speed for cases when value modified in place or when old value lookup not needed.
 OVERWRITE = None   #will use standard dict overwrite semantics
 def RETAIN(ddict, key, new_value): pass  #do nothing to the value
 def RAISE(ddict, key, new_value): raise KeyAlreadyExists, repr(key)
@@ -31,6 +31,8 @@ def ADD(ddict, key, new_value): ddict[key] += new_value
 def MAX(ddict, key, new_value): ddict[key] = max(ddict[key], new_value)
 def MIN(ddict, key, new_value): ddict[key] = min(ddict[key], new_value)
 def OUTPUT_KEY(ddict, key, new_value): print key
+
+DEFAULT_VALUE = None
 
 class defdict(dict):
     """Extends standard dictionary type by allowing user to
@@ -45,7 +47,7 @@ class defdict(dict):
 
     __slots__ = ['default']
 
-    def __init__(self, init={}, default=None, collision=OVERWRITE):
+    def __init__(self, init={}, default=DEFAULT_VALUE, collision=OVERWRITE):
         """Create dictionary and initialize with mapping or list of (key, value) pairs, if given.
 
         Initialization interface similar to standard dictionary:
@@ -79,14 +81,14 @@ class defdict(dict):
         """
 
         self.default = default
-        if collision == OVERWRITE or not init or isinstance(init, dict):
-            dict.__init__(self, init)
-        else:  #list of (key, value) pairs may contain duplicates
-            dict.__init__(self)
-            for key, value in init:
-                self.setdefault(key, value, collision)
+        dict.__init__(self)
+        if isinstance(init, dict): #don't use dict(init) since derives classes have special setitem behavior
+            init = init.iteritems()
+        #list of (key, value) pairs may contain duplicates
+        for key, value in init:
+            self.setdefault(key, value, collision)
 
-    def fromkeys(cls, iterable, default=None, collision=OVERWRITE):
+    def fromkeys(cls, iterable, default=DEFAULT_VALUE, collision=OVERWRITE):
         """Create dictionary from iterable with optional default value.
 
         One can initialize defdict with a sequence of keys.
@@ -109,19 +111,14 @@ class defdict(dict):
         >>> print dd
         {0: 0, 1: 0, 2: 5, 3: 5, 4: 5}
         """
-        if collision == OVERWRITE:
-            dd = super(defdict, cls).fromkeys(iterable, default)
-            dd.default = default
-            return dd
-        else:
-            dd = cls(default=default)
-            for key in iterable:
-                dd.setdefault(key, default, collision)
-            return dd
+        dd = cls(default=default)
+        for key in iterable:
+             dd.setdefault(key, default, collision)
+        return dd
 
     fromkeys = classmethod(fromkeys)
 
-    def update(self, other, default = USE_DEFAULT, collision=OVERWRITE):
+    def update(self, other, default=USE_DEFAULT, collision=OVERWRITE):
         """Updates defdict from mapping type or iterable using default value and optional collision function.
 
         >>> d = defdict.fromkeys('ab', 1)
@@ -152,11 +149,8 @@ class defdict(dict):
         #perhaps should catch any exceptions that may be caused by collision
         #  and store aberrent keys in the exception to be reported later.
         if isinstance(other, dict):
-            if collision == OVERWRITE:
-                dict.update(self, other)
-            else:   #other dict may contain keys in self
-                for key, value in other.iteritems():
-                    self.setdefault(key, value, collision)
+            for key, value in other.iteritems():
+                self.setdefault(key, value, collision)
         else:  #given iterable
             for key in other:   #XXX slower than necessary since setdefault will check default each time and return unused value
                 self.setdefault(key, default, collision)
@@ -182,7 +176,6 @@ class defdict(dict):
         10
         >>> dd.setdefault('c', 10, RAISE)
         Traceback (most recent call last):
-           ...
         KeyAlreadyExists: 'c'
         >>> print dd
         {'a': 5, 'b': 12, 'c': 10}
@@ -223,6 +216,7 @@ class defdict(dict):
 
     def copy(self):
         """Return shallow copy of dictionary.
+
         >>> dd = defdict.fromkeys(range(5), 5)
         >>> ddcopy = dd.copy()
         >>> print ddcopy.default, type(ddcopy); print ddcopy
@@ -238,6 +232,7 @@ class defdict(dict):
 
     def __str__(self):
         """Convert self to string with keys in sorted order.
+
         >>> str(defdict())
         '{}'
         >>> str(defdict({9: 0, 'test': 0, 'a': 0, 0: 0}))
@@ -251,7 +246,7 @@ class defdict(dict):
 
 def _test():
     import doctest, defdict
-    return doctest.testmod(defdict)
+    return doctest.testmod(defdict, isprivate=lambda *args: 0)
 
 if __name__ == "__main__":
     _test()

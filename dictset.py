@@ -4,29 +4,29 @@ but preserved.  The usual operations (union, intersection, deletion,
 etc.) are provided as both methods and operators.
 """
 
-__version__ = "$Revision: 1.2 $"
+__version__ = "$Revision: 1.3 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2001/10/12 03:11:48 $"
+__date__    = "$Date: 2002/07/08 04:22:56 $"
 
 from copy import deepcopy, copy
 
 #XXX make set operators consistent wrt key collision handling and parameter types
 # enhance set operators with optional "collision_function" parameter that is called when a key exists in both dictionaries
 #  default to (lambda s, o: o), but could also provide (lambda s, o: s+o) for example, or (lambda s,o: o.copy())
-#Allow init to take optional parameter for default value type (default=None), then replace all hard-coded "None"
+
+default_value = None  #unless specified otherwise, values get assigned default_value
 
 class DictSet(dictionary):
 
     #----------------------------------------
-    def __init__(self, iterable=None, default_value=None):
+    def __init__(self, init=None, value=default_value):
         """Construct a set, optionally initializing it with elements
-        drawn from an iterable object.  If default_value is passed,
+        drawn from an iterable object.  If value is passed,
         then all new elements get assigned it unless told otherwise."""
 
         dictionary.__init__(self)
-        self._default = default_value
-        if iterable is not None:
-            self.update(iterable)
+        if init is not None:
+            self.update(init, value) #will try dictionary.update first
 
     #----------------------------------------
     def __str__(self):
@@ -71,7 +71,7 @@ class DictSet(dictionary):
     #----------------------------------------
     def __copy__(self):  #XXX necessary?
         """Return a shallow copy of the set."""
-        return self.__class__(self)
+        return self.__class__(init=self)
 
     #----------------------------------------
     # Define 'copy' method as readable alias for '__copy__'.
@@ -80,6 +80,7 @@ class DictSet(dictionary):
 
     #----------------------------------------
     def __deepcopy__(self, memo):
+        #XXX since no more hash value, couldn't this be simpler?
         result          = self.__class__()
         memo[id(self)]  = result
         for elt in self:
@@ -99,7 +100,7 @@ class DictSet(dictionary):
         """Create new set whose elements are the union of this set's
         and another's."""
 
-        result = self.__class__(self)
+        result = self.__class__(init=self)
         result.update(other)
         return result
 
@@ -154,7 +155,7 @@ class DictSet(dictionary):
 
         if not isinstance(other, dictionary):
             raise ValueError, "Set operation only permitted between dictionary types."
-        result = self.__class__(self)
+        result = self.__class__(init=self)
         for elt in other:
             try:
                 del result[elt]
@@ -166,8 +167,9 @@ class DictSet(dictionary):
     def difference_update(self, other):
         """Remove all elements of another set from this set."""
 
-        for elt in other:
-            self.discard(elt)
+        if len(self):
+            for elt in other:
+                self.discard(elt)
         return self
 
     #----------------------------------------
@@ -175,9 +177,10 @@ class DictSet(dictionary):
         """Create new set containing elements of this set that are not
         present in another set."""
 
-        result = self.__class__(self)
-        for elt in other:
-            result.discard(elt)
+        result = self.__class__(init=self)
+        if len(result):
+            for elt in other:
+                result.discard(elt)
         return result
 
     #----------------------------------------
@@ -196,23 +199,23 @@ class DictSet(dictionary):
     __isub__    = difference_update
 
     #----------------------------------------
-    def add(self, item):
-        """Add an item to a set.  This has no effect if the item is
+    def add(self, item, value=default_value):
+        """Add a hashable item to a set.  This has no effect if the item is
         already present."""
 
         if item not in self:
-            self[item] = copy(self._default)
+            self[item] = value
 
     #----------------------------------------
-    def update(self, iterable):
+    def update(self, iterable, value=default_value):
         """Add all values from an iteratable (such as a tuple, list,
         or file) to this set."""
 
         try:
             dictionary.update(self, iterable)
         except AttributeError:
-            for item in iterable:  #if item not in self: self[item]=None faster??
-                self[item] = copy(self._default)
+            for item in iterable:  #if item not in self: self[item]=value faster??
+                self[item] = value
 
     #----------------------------------------
     def discard(self, item):
@@ -229,15 +232,6 @@ class DictSet(dictionary):
         """Remove and return a randomly-chosen set element."""
 
         return dictionary.popitem(self)[0]
-
-    #----------------------------------------
-    def setdefault(self, key, failobj=None):
-        if key not in self:
-            if failobj==None:
-                self[key] = copy(self._default)
-            else:
-                self[key] = failobj
-        return self[key]
 
     #----------------------------------------
     def _within(self, other):
@@ -286,12 +280,12 @@ if __name__ == "__main__":
     assert str(red) == "{9}", "Add to empty set: %s" % `red`
 
     # Remove element from unit set
-    red.remove(9)
+    del red[9]
     assert str(red) == "{}", "Remove from unit set: %s" % `red`
 
     # Remove element from empty set
     try:
-        red.remove(0)
+        del red[0]
         assert 0, "Remove element from empty set: %s" % `red`
     except LookupError:
         pass

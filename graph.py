@@ -3,9 +3,9 @@
 
 """Graph class."""
 
-__version__ = "$Revision: 1.5 $"
+__version__ = "$Revision: 1.6 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2001/10/16 01:34:03 $"
+__date__    = "$Date: 2001/10/16 02:56:26 $"
 
 #change a lot of these for loops to use faster map() function (see FAQ and QuickReference)
 #remember reduce(lambda x,y: x+y, [1,2,3,4,5]) works for summing all elements...
@@ -17,20 +17,15 @@ __date__    = "$Date: 2001/10/16 01:34:03 $"
 #  a separate dictionary (or list/vector?)  for holding actual vertices and indices
 #  a second vector would hold the action energy (for Network type)
 #  but remember:  premature optimization...
-#Replace uses of setdefault with DictSet.update, see DictSet notes for further ideas (update() can be pass function parameter (lambda s, o: s|o)
-# consider providing generator-iterators on vertex for in and out vertices.
 
-from __future__ import nested_scopes
 from __future__ import generators
 
-import dictset
-
 VertexBaseType = dictionary
-BaseType = dictionary
+GraphBaseType = dictionary
 EdgeValue = 1
 
 _DEBUG = 1
-_PROFILE = 1
+_PROFILE = 0
 
 #see graph1.py for collision enhancement
 
@@ -41,14 +36,13 @@ class Vertex(VertexBaseType):
 
     def __init__(self, graph, tails=[]):
         """Create a Vertex object in graph, populated with optional tail(s)."""
-        #Note: mandatory parameter means base's copy operations won't work: e.g. Vertex|Vertex
         VertexBaseType.__init__(self)
         self._graph = graph  #graph to which this vertex belongs
         if tails != []:
             self.add(tails)  #XXX slower than necessary since don't need to check for presence of existing tail at init
 
     def add(self, tail):
-        """Add the tails to Vertex.  Add tails to graph as necessary."""
+        """Add the tails to Vertex.  Add tails to graph if neeed."""
         assert tail!=[]
         try:  #single tail addition
             if tail not in self:
@@ -59,7 +53,7 @@ class Vertex(VertexBaseType):
 
     def discard(self, tail):
         """Removes tail if present, otherwise does nothing."""
-        try:
+        try: #single tail removal
             del self[tail]
         except LookupError:  return
         except TypeError: #must have been given a tail list
@@ -67,12 +61,17 @@ class Vertex(VertexBaseType):
             self -= tail
 
     def update(self, tails):
-        """Add list of tails from iterable object to Vertex.  Adds tails to graph."""
-        #self._graph.add(tails)  #add tail vertices before tail edges
+        """Add list of tails from iterable object to Vertex.  Adds tails to graph if needed."""
         for t in tails:
             if t not in self:
-                self._graph.add(t)
+                self._graph.add(t)  #will assume that if t in self, then t in self._graph
                 self[t] = EdgeValue
+
+    def __copy__(self):
+        """Make a copy of the Vertex: tail set."""
+        return self.__class__(self, self.keys())
+
+    copy = __copy__
 
     out_vertices = VertexBaseType.iterkeys
     out_degree = VertexBaseType.__len__
@@ -81,7 +80,7 @@ class Vertex(VertexBaseType):
         """Add list of tails without checking for existence in graph."""
         if not isinstance(tails, list): tails = [tails]
         for t in tails:
-            if t not in self:
+            if t not in self:  #probably faster to check if already present, than do redundant assignment
                 self[t] = EdgeValue
 
     def __isub__(self, other):
@@ -90,14 +89,16 @@ class Vertex(VertexBaseType):
             try:
                 del self[tail]
             except LookupError:
-                if not len(self): break
+                if not len(self): break  #good place to check if self is empty yet...
         return self
 
     def __str__(self):
+        """Return string of tail vertices in set notation."""
         if _DEBUG: self.validate()
         return "{%s}" % `self.keys()`[1:-1]
 
     def validate(self):
+        """Verify Vertex invariants."""
         assert isinstance(self._graph, BaseGraph)
         for t in self:
             assert t in self._graph, "Non-existant tail %s in vertex" % t
@@ -105,31 +106,39 @@ class Vertex(VertexBaseType):
 # }}} Vertex
 
 # {{{ Graph class
-class BaseGraph(BaseType):
+class BaseGraph(GraphBaseType):
     """Basic class implementing a directed Graph.  Vertices without edges are allowed.
     Self-referencing vertices are allowed."""
     #Basic data structure {vertex id: {t1: edge; t2: edge}
 
     def __init__(self, initgraph=None):
-        BaseType.__init__(self)
+        """Create the graph, optionally initializing from another graph."""
+        GraphBaseType.__init__(self)
         if initgraph is not None:
             assert isinstance(initgraph, BaseGraph)
             initgraph.validate()
-            dictionary.update(self, initgraph)
+            dictionary.update(self, initgraph)  #XXX this will create shared Vertex objects!
 
     def add(self, head, tail=[]):
-        try:
+        """Add the vertices and/or edges.
+        Parameters can be single vertex or list of vertices.
+        If only one parameter is given, then only vertex additions are made.
+        If both parameter are given, then edge additions are made.  Vertices are added as necessary.
+        """
+
+        try:  #simplest possibility first:  single head addition
             if head not in self:
                 self[head] = Vertex(self, tail)
             elif tail != []:
                 self[head].add(tail) #will add tail vertices to graph as necessary
-        except TypeError:
+        except TypeError:  #multiple head addition
             if not isinstance(head, list): raise TypeError, "argument must be hashable type or a list object."
             temp = Vertex(self, tail)  #will add all tail vertices, if any
             for h in head:
                 if h not in self:
                     self[h] = Vertex(self)
-                dictionary.update(self[h], temp) #XXX if Edge values are non-simple objects, then update will copy same objects to other vertices.
+                #super-fast addition of tail list, but note: XXX if Vertex values are non-simple objects, then update will copy same objects to other vertices.
+                dictionary.update(self[h], temp)  #super-fast and good as long as Vertex values are simple types
             del temp
         if _DEBUG: self.validate()
 
@@ -137,13 +146,15 @@ class BaseGraph(BaseType):
         return len(self.select(head, tail))
 
     def select(self, head, tail=[]):
+        """Return list of vertices or edge tuples that satisfy constraints given.
+        Parameters can be either single vertex names or list of vertices.
+        select(All) returns all vertices in graph.
+        select(All, All) returns all edges in graph.
+        select(h, ALL) returns all edges where h is the head vertex.
+        select(ALL, t) return all edges where t is the tail vertex.
+        select(v) returns intersection of v and graph.
+        select(h,t) returns intersection of (h,t) and all graph edges.
         """
-        select(All) returns g.vertices
-        select(All, All) returns g.edges
-        select(h, ALL) returns g[h].out_edges
-        select(ALL, t) return g[t].in_edges
-        select(v) returns v in g
-        select(h,t) returns (h,t) if in g"""
         #XXX if self.vertices() is passed as both parameters, it appears that each affect the other...
         if not isinstance(head, list) and type(head)!=type(self.iterkeys()): head = [head]
         if tail==[]:
@@ -154,9 +165,10 @@ class BaseGraph(BaseType):
 
     def discard(self, head, tail=[]):
         """Remove vertices and/or edges.
+        Parameters can be single vertex or list of vertices.
         If tail is non-empty, then only edge deletions are made.
         If tail is empty, then vertex deletions are made and any associated edges.
-        Parameter can be single vertex or list of vertices."""
+        """
         if tail==[]:    #vertex deletions
             try:
                 del self[head]
@@ -166,18 +178,18 @@ class BaseGraph(BaseType):
                 for h in head:
                     if h in self:
                         self[h].clear()
-                        BaseType.__delitem__(self, h) #don't duplicate effort (will discard in_vertices below)
-                    #else head -= h #for faster tail removal in next loop
+                        GraphBaseType.__delitem__(self, h) #don't duplicate effort (will discard in_vertices below)
+                    else: head.remove(h) #for faster tail removal in next loop
                 for h in self:   #visit remaining vertices and remove occurances of head items in edge lists
                     self[h].discard(head)
         else:   #edge deletions only
-            if not isinstance(head, list): head = [head] #quick and dirty
+            if not isinstance(head, list): head = [head] #quick and dirty to avoid extra code
             for h in head:
                 if h in self:
                     self[h].discard(tail)
         if _DEBUG: self.validate()
 
-    out_vertices = BaseType.__getitem__  #note:  returns dictionary, unlike in_vertices() which returns iterator
+    out_vertices = GraphBaseType.__getitem__  #XXX returns dictionary, unlike in_vertices() which returns iterator
 
     def in_vertices(self, vertex):
         """Return iterator over the vertices where vertex is tail."""
@@ -188,32 +200,31 @@ class BaseGraph(BaseType):
                 yield h
 
     def setdefault(self, vertex, failobj=None): #don't put Vertex() here as default parameter since then only evaluated once-->all vertices get same Set!
+        """Set default ignores failobj parameter and only sets new graph values to Vertex type."""
         assert failobj is None
         if vertex not in self:
             self[vertex] = Vertex(self)
         return self[vertex]
 
     def popitem(self):
-        vertex, edges = BaseType.popitem(self)
-        del self[vertex]  #XXX this will generate keyerror, since already gone, but how to clean up tail info?
-        return (vertex, edges)
+        """Remove and return one arbitrary vertex-edge tuple.  Preserve graph invariants."""
+        for v, tails in self.iteritems(): break
+        tails = tails.copy()  #must make copy since we have the actual object which is about to be deleted.
+        del self[v]  #removes any edges as necessary
+        return (v, tails)
 
-    def clear(self):
-        for h in self.keys():    #make copy of keys since modifying below
-            del self[h]    #self[h].clear() done in del method
-
-    def update(self, other):  #XXX what will happen to Set's use of update?
+    def update(self, other):
         """Merges one graph with another.  Takes union of edge lists."""
         assert isinstance(other, BaseGraph), "Can only merge Graph types."
         for h in other:
             if h in self:  #do union of edge sets
-                self[h] |= other[h]
+                self[h].update(other[h])  #XXX update doesn't currently preserve values
             else:   #otherwise just copy the set
                 self[h] = other[h].copy()
 
     #alternate syntax for various items
-    vertices = BaseType.iterkeys
-    order = BaseType.__len__
+    vertices = GraphBaseType.iterkeys
+    order = GraphBaseType.__len__
     #__setitem__ #for some reason is called for self[v] -= [tails] so can't remove from interface
 
     def __delitem__(self, head):
@@ -222,8 +233,7 @@ class BaseGraph(BaseType):
         self[head].clear()
         for v in self.in_vertices(head):
             del self[v][head]
-        BaseType.__delitem__(self, head)
-
+        GraphBaseType.__delitem__(self, head)
 
     def __str__(self):
         self.validate()

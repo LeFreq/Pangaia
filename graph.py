@@ -3,26 +3,16 @@
 
 """Graph class."""
 
-__version__ = "$Revision: 2.5 $"
+__version__ = "$Revision: 2.6 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/07/10 21:37:33 $"
+__date__    = "$Date: 2002/07/10 22:47:34 $"
 
 #change a lot of these for loops to use faster map() function (see FAQ and QuickReference)
-#remember reduce(lambda x,y: x+y, [1,2,3,4,5]) works for summing all elements...
 #also: map/reduce/filter now work with any iterable object (including dictionaries!)
 #add persistence
 #implementation options:  { id: Vertex(id).{tail:Edge(tail)}}, {Vertex(id):kjSet(Edges)
 #  {id: vertex(id)}{id:{Edge(proxy(Vertex(tail)))}; g.add(vertex, VertType=BaseVert), etc..
-#having second thoughts about design:  maybe should use a SparseMatrix class (in Numeric module?) for holding
-#  connection matrix:  0 for no connection 1 for unweighted graph, or the actual weight in case of weighted graph
-#  a separate dictionary (or list/vector?)  for holding actual vertices and indices
-#  a second vector would hold the action energy (for Network type)
-#  but remember:  premature optimization...
 #XXX Use of exceptions for control flow may prevent seeing actual errors.  Perhaps catch exception, plus error string and assert string is as expected
-#XXX Use super() for calling base class methods
-#perhaps Vertex._fastupdate() should be renamed __iadd__()
-#consider sorting keys in __str__ methods.
-#add setoperator mixin class to add set functions to a dict type
 #XXX Fix default value issues for Vertex: g.add(5) makes g[5].default=1 only when 5 not in g
 
 from __future__ import generators
@@ -90,6 +80,7 @@ class Vertex(VertexBaseType):
         >>> g[5][7]
         24
         """
+        if type(self) is Vertex: assert edge_value==USE_DEFAULT, "Vertex type does not support edge-value assignment." #XXX better way? how about setdefault too?
         try:  #single tail addition
             self.setdefault(tail, edge_value, collision)
         except TypeError:  #multiple tail addition
@@ -154,10 +145,7 @@ class Vertex(VertexBaseType):
         >>> g[1].in_degree(), g[2].in_degree(), g[4].in_degree()
         (0, 2, 1)
         """
-        i = 0
-        for h in self.in_vertices():
-            i += 1
-        return i
+        return len(map(None, self.in_vertices()))
 
     out_degree = VertexBaseType.__len__
 
@@ -170,7 +158,7 @@ class Vertex(VertexBaseType):
 
     def __str__(self, format_string="%r: %r"):
         """Return string of tail vertices in set notation."""
-        #XXX for non-weight vertex, use "%r%r\b \b" which will erase edge value (bs, write space, bs)
+        #XXX could use "%r%r\b \b" which will erase edge value (bs, write space, bs) --fails doctests
         if _DEBUG: self.validate()
         return super(Vertex, self).__str__(format_string)
 
@@ -182,7 +170,7 @@ class Vertex(VertexBaseType):
         >>> type(v), v 
         (<class 'graph.Vertex'>, {1: 1})
         """
-        return self.__class__(self._graph, self._id, self)
+        return self.__class__(self._graph, self._id, self, self.default)
         #XXX shallow copy assumes edge values are simple type!
 
     def validate(self):

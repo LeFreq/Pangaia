@@ -19,35 +19,71 @@ from __future__ import nested_scopes
 
 import dictset
 
-SetType = dictset.DictSet
+VertexBaseType = dictionary
 BaseType = dictset.DictSet
+Edge = int
 _DEBUG = 1
+
+
+class Vertex(VertexBaseType):
+
+    def add(self, tail):
+        """Add the tails to Vertex.  Assumes all tails already exist."""
+        try:  #single tail addition
+            if tail not in self:
+                self[tail] = Edge(1)
+        except TypeError:  #multiple tail addition
+            self.update(tail)
+
+    def discard(self, tail):
+        """Removes tail if present, otherwise does nothing."""
+        try:
+            del self[tail]
+        except KeyError:
+            pass
+
+    def update(self, tails):
+        """Add list of tails."""
+        for t in tails:
+            if t not in self:
+                self[t] = Edge(1)
+
+    def __isub__(self, other):
+        """Remove the tail vertices.  Other can be any iterable object."""
+        for tail in other:
+            self.discard(tail)
+        return self
+
+    def __str__(self):
+        return "{%s}" % `self.keys()`[1:-1]
+
 
 # {{{ Graph class
 class BaseGraph(BaseType):
     """Basic class implementing a directed Graph.  Vertices without edges are allowed.  Self-referencing vertices are allowed."""
-    #Basic data structure {vertex: SetType(tail vertices)}
+    #Basic data structure {vertex id: Vertex(tail vertices)}
 
     def __init__(self, initgraph=None):
+        BaseType.__init__(self)
         if initgraph is not None:
             assert isinstance(initgraph, BaseGraph)
             initgraph.validate()
-            BaseType.__init__(self, initgraph)
-        else:
-            BaseType.__init__(self)
+            dictionary.update(self, initgraph)
 
     def add(self, head, tail=[]):
         try:    #most common operation first:  single vertex addition  ##FIXME: results in code duplication--is this really
-            self.setdefault(head)   #will raise exception if given a list (or other unhashable type!)
+            if head not in self:    #will raise exception if given a list (or other unhashable type!)
+                self[head] = Vertex()
             try:    #head added, now check to see if tail given, next most common operation second: single edge addition
-                self.setdefault(tail)
+                if tail not in self:
+                    self[tail] = Vertex()
                 self[head].add(tail)      #will add actual object reference as tail
             except TypeError:   #must of been given a tail list (or no tail specified)
-                if not isinstance(tail, list): raise "Second argument must be hashable type or a list object."
+                if not isinstance(tail, list): raise TypeError, "argument must be hashable type or a list object."
                 map(self.setdefault, tail)  #add all tail vertices first
                 self[head].update(tail)
         except TypeError:   #must of been given a head list
-            if not isinstance(head, list): raise "First argument must be hashable type or a list object."
+            if not isinstance(head, list): raise TypeError, "argument must be hashable type or a list object."
             if not isinstance(tail, list):  tail = [tail]
             map(self.setdefault, head+tail) #add all vertices first #FIXME: would intersection of head+tail help much?, also: setdefault mightl raise TypeError
             if tail!=[]:    #perhaps unuseful test, may speedup things in default case though (tail=[])
@@ -79,26 +115,21 @@ class BaseGraph(BaseType):
             try:
                 del self[head]
             except TypeError:   #given head list
-                if not isinstance(head, list): raise "First argument must be hashable type or a list object."
+                if not isinstance(head, list): raise TypeError, "argument must be hashable type or a list object."
                 for h in head:
                     if h in self:
                         self[h].clear()
-                        #for v in self.in_vertices(h):  #if v not in head: self[v].discard(h)?  #ignore edge lists on vertices about to be discarded
-                        #   self[v].discard(h)          #this is really slow O(N^2); maybe at end iterate through remaining vertices and discard everything in head list
                         BaseType.__delitem__(self, h) #don't duplicate effort
                     #else head -= h #for faster tail removal in next loop
-                headset = SetType(head)
                 for h in self:   #visit remaining vertices and remove occurances of head items in edge lists
-                    self[h] -= headset     #set subtraction
+                    self[h] -= head     #set subtraction
             except LookupError: pass   #do nothing if given non-existent vertex
         else:   #edge deletions
             if not isinstance(head, list): head = [head]
             if not isinstance(tail, list): tail = [tail]
             for h in head:
                 if h in self:
-                    head_discard = self[h].discard  #for efficiency's sake
-                    for t in tail:  #tail[:]?
-                        head_discard(t)
+                    self[h] -= tail  #set subtraction
         if _DEBUG: self.validate()
 
     out_vertices = BaseType.__getitem__
@@ -108,20 +139,20 @@ class BaseGraph(BaseType):
             raise LookupError, vertex
         return [h for h in self if vertex in self[h]]
 
-    def setdefault(self, vertex, failobj=None): #don't put SetType() here as default parameter since then only evaluated once-->all vertices get same Set!
+    def setdefault(self, vertex, failobj=None): #don't put Vertex() here as default parameter since then only evaluated once-->all vertices get same Set!
+        assert failobj is None
         if vertex not in self:
-            self[vertex] = SetType(failobj)
+            self[vertex] = Vertex()
         return self[vertex]
 
     def popitem(self):
         vertex, edges = BaseType.popitem(self)
-        del self[vertex]
-        return
+        del self[vertex]  #XXX this will generate keyerror, since already gone, but how to clean up tail info?
+        return (vertex, edges)
 
     def clear(self):
         for h in self.keys():    #make copy of keys since modifying below
-            self[h].clear()
-            del self[h]
+            del self[h]    #self[h].clear() done in del method
 
     def update(self, other):  #XXX what will happen to Set's use of update?
         """Merges one graph with another.  Takes union of edge lists."""
@@ -135,21 +166,20 @@ class BaseGraph(BaseType):
     #alternate syntax for various items
     vertices = BaseType.keys
     order = BaseType.__len__
+    #__setitem__ #for some reason is called for self[v] -= [tails] so can't remove from interface
 
-    #def __setitem__(self): pass #not allowed
     def __delitem__(self, head):
         """Delete a single vertex and associated edges.
         Raises LookupError if given non-existant vertex."""
         self[head].clear()
         for v in self.in_vertices(head):
-            self[v].discard(head)
+            del self[v][head]
         BaseType.__delitem__(self, head)
+
 
     def __str__(self):
         self.validate()
-        s = "{"
-        s += ", ".join(map(lambda head: "%s: %s" % (head, self[head]), self))
-        return s + "}"
+        return "{" + ", ".join(map(lambda head: "%s: %s" % (head, self[head]), self)) + "}"
 
     __repr__ = __str__
 
@@ -157,7 +187,7 @@ class BaseGraph(BaseType):
         """Check graph invariants."""
         #NOTE:  calling this after each insert/remove slows things down considerably!
         for v in self.vertices():
-            assert isinstance(self[v], SetType), "Set type not found for edge list on " + str(v)
+            assert isinstance(self[v], Vertex), "Set type not found for edge list on " + str(v)
             assert len(self[v]) <= len(self), "Edge list larger that vertex list on " + str(v)  #this important since select function below will only return valid edges
             for t in self[v]:
                 assert t in self, "Non-existant tail %s in vertex %s" % (t, v)

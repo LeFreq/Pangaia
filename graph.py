@@ -198,6 +198,7 @@ class BaseGraph(BaseType):
 # }}} Graph
 
 def test(g, size=100):
+    import time
 #    from graphsupport2 import *
     #FIXME:  should exercise every function in graph...
     #FIXME:  should try removing non-existent things too
@@ -229,6 +230,16 @@ def test(g, size=100):
 #    generate(g, "random",30)
 #    generate(g, "random",30)
     print g
+    print "Profiling..."
+    for i in [1,2]:
+        start=time.clock()
+        g.add(range(1000),range(1000))
+        finish=time.clock()
+        print "Add 1000, 1000; pass %i: %5.2fs" %  (i, (finish-start))
+    start=time.clock()
+    g.discard(range(1000), range(1000))
+    finish=time.clock()
+    print "Discard 1000; pass %i:  %5.2fs" % (i, (finish-start))
 
 if __name__ == '__main__':
     g=BaseGraph()

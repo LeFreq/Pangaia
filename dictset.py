@@ -4,31 +4,33 @@ but preserved.  The usual operations (union, intersection, deletion,
 etc.) are provided as both methods and operators.
 """
 
-__version__ = "$Revision: 1.1 $"
+__version__ = "$Revision: 1.2 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2001/10/11 01:42:22 $"
+__date__    = "$Date: 2001/10/12 03:11:48 $"
 
-from copy import deepcopy
+from copy import deepcopy, copy
 
-#could remove parameter restriction on the operators to allow operations on non-sets (only sym_difference need be modified)
-# enhance update method with optional "update_function" parameter that is called when a key exists in both dictionaries
-#  default to (lambda s, o: s), but could also provide (lambda s, o: s+o) for example
+#XXX make set operators consistent wrt key collision handling and parameter types
+# enhance set operators with optional "collision_function" parameter that is called when a key exists in both dictionaries
+#  default to (lambda s, o: o), but could also provide (lambda s, o: s+o) for example, or (lambda s,o: o.copy())
 #Allow init to take optional parameter for default value type (default=None), then replace all hard-coded "None"
 
 class DictSet(dictionary):
 
     #----------------------------------------
-    def __init__(self, iterable=None):
+    def __init__(self, iterable=None, default_value=None):
         """Construct a set, optionally initializing it with elements
-        drawn from an iterable object."""
+        drawn from an iterable object.  If default_value is passed,
+        then all new elements get assigned it unless told otherwise."""
 
         dictionary.__init__(self)
+        self._default = default_value
         if iterable is not None:
             self.update(iterable)
 
     #----------------------------------------
     def __str__(self):
-        """Return sorted set string in standard notation."""
+        """Return string in sorted standard set notation."""
         content = self.keys()
         content.sort()
         return '{' + str(content)[1:-1] + '}'
@@ -89,7 +91,6 @@ class DictSet(dictionary):
         """Update set with union of its own elements and the elements
         in another set."""
 
-        self._binary_sanity_check(other)
         self.update(other)
         return self
 
@@ -98,29 +99,27 @@ class DictSet(dictionary):
         """Create new set whose elements are the union of this set's
         and another's."""
 
-        self._binary_sanity_check(other)
         result = self.__class__(self)
         result.update(other)
         return result
 
     #----------------------------------------
+    # intersect should probably keep value of other set to be consistent w/update()
     def intersect_update(self, other):
         """Update set with intersection of its own elements and the
-        elements in another set."""
+        elements in another set.  Does not affect values of self."""
 
-        self._binary_sanity_check(other)
         for elt in self.keys():  #make copy since modifying below
-            if elt not in other:
+            if elt not in other: #XXX slow if other is list
                 del self[elt]
         return self
 
     #----------------------------------------
     def intersect(self, other):
         """Create new set whose elements are the intersection of this
-        set's and another's."""
+        set's and another's.  Retains values of self."""
 
-        self._binary_sanity_check(other)
-        if len(self) <= len(other):
+        if len(self) <= len(other) and isinstance(other, dictionary):
             little, big = self, other
         else:
             little, big = other, self
@@ -137,7 +136,8 @@ class DictSet(dictionary):
         if it was originally present in one or the other set, but not
         in both."""
 
-        self._binary_sanity_check(other)
+        if not isinstance(other, dictionary):
+            raise ValueError, "Set operation only permitted between dictionary types."
         for elt in other:
             try:
                 del self[elt]
@@ -152,7 +152,8 @@ class DictSet(dictionary):
         the result if it was originally present in one or the other
         set, but not in both."""
 
-        self._binary_sanity_check(other)
+        if not isinstance(other, dictionary):
+            raise ValueError, "Set operation only permitted between dictionary types."
         result = self.__class__(self)
         for elt in other:
             try:
@@ -165,7 +166,6 @@ class DictSet(dictionary):
     def difference_update(self, other):
         """Remove all elements of another set from this set."""
 
-        self._binary_sanity_check(other)
         for elt in other:
             self.discard(elt)
         return self
@@ -175,7 +175,6 @@ class DictSet(dictionary):
         """Create new set containing elements of this set that are not
         present in another set."""
 
-        self._binary_sanity_check(other)
         result = self.__class__(self)
         for elt in other:
             result.discard(elt)
@@ -201,7 +200,8 @@ class DictSet(dictionary):
         """Add an item to a set.  This has no effect if the item is
         already present."""
 
-        self[item] = None
+        if item not in self:
+            self[item] = copy(self._default)
 
     #----------------------------------------
     def update(self, iterable):
@@ -211,15 +211,8 @@ class DictSet(dictionary):
         try:
             dictionary.update(self, iterable)
         except AttributeError:
-            for item in iterable:
-                self[item] = None
-
-    #----------------------------------------
-    def remove(self, item):
-        """Remove an element from a set if it is present, or raise a
-        LookupError if it is not."""
-
-        del self[item]
+            for item in iterable:  #if item not in self: self[item]=None faster??
+                self[item] = copy(self._default)
 
     #----------------------------------------
     def discard(self, item):
@@ -238,6 +231,15 @@ class DictSet(dictionary):
         return dictionary.popitem(self)[0]
 
     #----------------------------------------
+    def setdefault(self, key, failobj=None):
+        if key not in self:
+            if failobj==None:
+                self[key] = copy(self._default)
+            else:
+                self[key] = failobj
+        return self[key]
+
+    #----------------------------------------
     def _within(self, other):
         """Return true if all elements of self are contained in other."""
         for elt in self:
@@ -251,14 +253,6 @@ class DictSet(dictionary):
             if elt not in self:
                 return 0
         return 1
-
-    #----------------------------------------
-    def _binary_sanity_check(self, other, updating_op=''):
-        """Check that the other argument to a binary operation is
-        a dictionary or derived class, raising a ValueError if
-        condition is not met."""
-        if not isinstance(other, dictionary):
-            raise ValueError, "Set operation only permitted between dictionary types."
 
 
 #----------------------------------------------------------------------

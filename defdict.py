@@ -3,9 +3,9 @@
 
 """Dictionary with default values, collision function, and sorted string output."""
 
-__version__ = "$Revision: 2.4 $"
+__version__ = "$Revision: 2.5 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2003/06/10 00:12:06 $"
+__date__    = "$Date: 2003/06/17 06:22:13 $"
 
 import exceptions
 import copy
@@ -79,7 +79,7 @@ class defdict(dict):
         """
 
         self.default = default
-        if collision == OVERWRITE or isinstance(init, dict) or not init:
+        if collision == OVERWRITE or not init or isinstance(init, dict):
             dict.__init__(self, init)
         else:  #list of (key, value) pairs may contain duplicates
             dict.__init__(self)
@@ -105,7 +105,7 @@ class defdict(dict):
         its .default attribute.
 
         >>> dd.default = 5        #change dd's default value
-        >>> dd.update_fromkeys([2, 3, 4])  #default will be used since no value specified
+        >>> dd.update([2, 3, 4])  #default will be used since no value specified
         >>> print dd
         {0: 0, 1: 0, 2: 5, 3: 5, 4: 5}
         """
@@ -121,8 +121,8 @@ class defdict(dict):
 
     fromkeys = classmethod(fromkeys)
 
-    def update(self, other, collision=OVERWRITE):
-        """Updates defdict from mapping type.
+    def update(self, other, default = USE_DEFAULT, collision=OVERWRITE):
+        """Updates defdict from mapping type or iterable using default value and optional collision function.
 
         >>> d = defdict.fromkeys('ab', 1)
         >>> d.update({'a': 0, 'c': 2})
@@ -134,37 +134,32 @@ class defdict(dict):
         OVERWRITE semantics.  This behavior can be modified by passing a
         collision function.
 
-        >>> d.update({'b': 3, 'd': 9}, ADD)
+        >>> d.update({'b': 3, 'd': 9}, collision=ADD)
         >>> print d
         {'a': 0, 'b': 4, 'c': 2, 'd': 9}
+
+        >>> d.update(['b','c'], 5)  #use 5 as the value for the keys
+        >>> d.update('abd')         #string are iterated
+        >>> print d
+        {'a': 1, 'b': 1, 'c': 5, 'd': 1}
+        >>> d.update('de', collision=ADD)
+        >>> print d
+        {'a': 1, 'b': 1, 'c': 5, 'd': 2, 'e': 1}
 
         NOTE:  If collision function raises an exception, defdict may be
         left in partially-updated state.
         """
         #perhaps should catch any exceptions that may be caused by collision
         #  and store aberrent keys in the exception to be reported later.
-        if collision == OVERWRITE:
-            dict.update(self, other)
-        else:   #other dict may contain keys in self
-            for key, value in other.iteritems():
-                self.setdefault(key, value, collision)
-
-    def update_fromkeys(self, iterable, default = USE_DEFAULT, collision=OVERWRITE):
-        """Update from any iterable type, using default value and optional collision function.
-
-        >>> d = defdict.fromkeys('ab', 1)
-        >>> d.update_fromkeys(['b','c'], 5)  #use 5 as the value for the keys
-        >>> d.update_fromkeys('abd')         #string are iterated
-        >>> print d
-        {'a': 1, 'b': 1, 'c': 5, 'd': 1}
-
-        An optional collision function can be specified:
-        >>> d.update_fromkeys('de', collision=ADD)
-        >>> print d
-        {'a': 1, 'b': 1, 'c': 5, 'd': 2, 'e': 1}
-        """
-        for key in iterable:   #XXX slower than necessary since setdefault will check default each time and return unused value
-            self.setdefault(key, default, collision)
+        if isinstance(other, dict):
+            if collision == OVERWRITE:
+                dict.update(self, other)
+            else:   #other dict may contain keys in self
+                for key, value in other.iteritems():
+                    self.setdefault(key, value, collision)
+        else:  #given iterable
+            for key in other:   #XXX slower than necessary since setdefault will check default each time and return unused value
+                self.setdefault(key, default, collision)
 
     def setdefault(self, key, value = USE_DEFAULT, collision=RETAIN):
         """Behaves like standard dict.setdefault, but uses value in
@@ -192,25 +187,26 @@ class defdict(dict):
         >>> print dd
         {'a': 5, 'b': 12, 'c': 10}
 
-        Default value is copied if non-simple type (ex. list, dict).
+        Default value is NOT copied if non-simple type (ex. list, dict).
+        If values must be distinct objects, then you must subclass and
+        override this method or __setitem__() to create a copy of the default.
 
         >>> dd = defdict(default=[])
         >>> dd.setdefault(1), dd.setdefault(2)
         ([], [])
-        >>> assert dd[1] is not dd[2]  #keys 1 and 2 have distinct value objects
-        >>> dd[2].append(42)
+        >>> dd[1] is dd[2]  #keys 1 and 2 do have distinct list objects
+        True
+        >>> dd[2].append(42) #will also change value in dd[1]!!!
         >>> print dd
-        {1: [], 2: [42]}
+        {1: [42], 2: [42]}
         """
         key_absent = key not in self   #fail immediately if key unhashable
-        if value == USE_DEFAULT:
-            value = copy.copy(self.default) #could consider using property and assigning read method based on (copy(default) is default)
+        if value == USE_DEFAULT: value = self.default #XXX should make copy for non-simple default, or rely on __setitem__() to make copy?
         if collision == OVERWRITE or key_absent:
-            self[key] = value
-            return value
+            self[key] = value #note: subclass may override setitem method so value may be modified
         else:
             collision(self, key, value)
-            return dict.__getitem__(self, key)  #may wish to allow dd[key] to insert key in dd with default value
+        return dict.__getitem__(self, key)  #may wish to allow dd[key] to insert key in dd with default value
 
     def get(self, key, *args):
         """Behaves like standard dict.get, but uses value in
@@ -240,7 +236,7 @@ class defdict(dict):
 
     __copy__ = copy
 
-    def __str__(self, format_string="%r: %r"):
+    def __str__(self):
         """Convert self to string with keys in sorted order.
         >>> str(defdict())
         '{}'
@@ -250,7 +246,7 @@ class defdict(dict):
         if not self: return '{}'    #nothing to sort
         keys = self.keys()
         keys.sort()
-        return '{' + ', '.join([format_string % (k, self[k]) for k in keys]) + '}'
+        return '{' + ', '.join(["%r: %s" % (k, self[k]) for k in keys]) + '}'
 
 
 def _test():

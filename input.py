@@ -26,9 +26,11 @@ class SerialIn:
             self.upnet.pull(bit)
 
     def filter(self, bit):
-        if not isinstance(bit, str): return bit
-        elif not bit.isalpha() or : return None
-        else: return bit.upper()
+        if not isinstance(bit, str):
+            return bit
+        elif bit.isalpha() or bit.isspace():
+            return bit.upper()
+        else: return None
 
     def attach(self, network):
         self.upnet = network
@@ -51,12 +53,17 @@ class LayerNet(Network):
         self.toggle = 0
 
     def pull(self, bit):
+        if bit.isspace():
+            self.lastbit = None
+            return
         self.add(bit)
         self[bit].energy += 1 #note v.sum_out() == v.energy
         if self.lastbit:
-            self.add(self.lastbit, bit)
+            self[self.lastbit][bit] += 1
             if self[self.lastbit][bit] >= self.link_threshold:
                 self.create(self.lastbit, bit)
+            elif self.upnet:
+                self.upnet.pull(" ")
             self.lastbit = bit
         else: self.lastbit = bit
 

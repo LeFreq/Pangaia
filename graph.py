@@ -3,9 +3,9 @@
 
 """Graph class."""
 
-__version__ = "$Revision: 2.3 $"
+__version__ = "$Revision: 2.4 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/07/08 23:58:26 $"
+__date__    = "$Date: 2002/07/10 20:24:08 $"
 
 #change a lot of these for loops to use faster map() function (see FAQ and QuickReference)
 #remember reduce(lambda x,y: x+y, [1,2,3,4,5]) works for summing all elements...
@@ -50,11 +50,11 @@ class Vertex(VertexBaseType):
 
     __slots__ = ['_graph', '_id']  #Put all Vertex attributes here.  Uses base class' dictionary, instead of creating duplicate
 
-    def __init__(self, graph, id, init={}, edge_value=EDGEVALUE):
+    def __init__(self, graph, id, init={}, edge_value=EDGEVALUE, collision=OVERWRITE):
         """Create a vertex object in graph.  Assumes id already in graph."""
         self._graph = graph  #graph to which this vertex belongs
         self._id = id
-        super(Vertex, self).__init__(init, edge_value, OVERWRITE)
+        super(Vertex, self).__init__(init, edge_value, collision)
         if init and not isinstance(init, dict): graph.add(init) #ensure tails are in graph
 
     def setdefault(self, tail, edge_value=USE_DEFAULT, collision=RETAIN):
@@ -224,12 +224,18 @@ class VMixin:
         (6, 0)
         """
         return reduce(lambda t1, t2: t1+t2, self.itervalues(), 0)  #use operator.add instead of lambda?
+
+    def __str__(self, format_string="%r: %r"):
+        """Return string of tail vertices in set notation."""
+        if _DEBUG: self.validate()
+        return super(Vertex, self).__str__(format_string)
+
 # }}} VMixin
 
 class WVertex(Vertex, VMixin):
     """Vertex with methods to sum edge weights."""
 
-#def MERGE_VERTEX(g, h, vert): g[h].update(vert)
+def MERGE_VERTEX(g, h, vert): g[h].update(vert)
 
 # {{{ Graph class
 class Graph(GraphBaseType):
@@ -261,7 +267,7 @@ class Graph(GraphBaseType):
             super(Graph, self).__init__()
             self.VertexType = VertexType
 
-    def add(self, head, tail=[], edge_value=EDGEVALUE):
+    def add(self, head, tail=[], edge_value=EDGEVALUE, edge_collision=OVERWRITE):
         """Add the vertices and/or edges.
         Parameters can be single vertex or list of vertices.
         If no second parameter given, assume vertex addition only.
@@ -299,14 +305,13 @@ class Graph(GraphBaseType):
         if not isinstance(tail, list): tail = [tail]
         try:  #single head addition
             if head not in self:    #check to avoid infinite loop
-                self[head] = self.VertexType(self, head, tail, edge_value)
+                self[head] = self.VertexType(self, head, tail, edge_value, edge_collision)
             elif tail:
-                self[head].update(tail, edge_value)
+                self[head].update(tail, edge_value, edge_collision)
         except TypeError:  #multiple head addition
             if not isinstance(head, list): raise "head must be hashable object or list type"
             for h in head:  #XXX will add same tails multiple times
-                self.add(h, tail, edge_value)
-        if _DEBUG: self.validate()
+                self.add(h, tail, edge_value, edge_collision)
 
     def discard(self, head, tail=[]):
         """Remove vertices and/or edges.  Parameters can be single vertex or list of vertices.
@@ -354,36 +359,51 @@ class Graph(GraphBaseType):
     #__setitem__ #for some reason is called for self[v] -= [tails] so can't remove from interface
 
     def popitem(self):
-        """Remove and return one arbitrary vertex-edge tuple.  Preserve graph invariants."""
-        #XXX doctest needed
+        """Remove and return one arbitrary vertex-edge tuple.  Preserve graph invariants.
+        >>> g = Graph()
+        >>> g.add(range(3),range(3))
+        >>> g.popitem()
+        (0, {0: 1, 1: 1, 2: 1})
+        >>> assert len(g)==2
+        >>> assert len(g[1])==2 and len(g[2])==2
+        """
+        #XXX doctest assumes dictionary order
         for v, tails in self.iteritems(): break  #XXX any better way?
         tails = tails.copy()  #must make copy since we have the actual object which is about to be deleted.
         del self[v]  #removes any edges as necessary
         return (v, tails)
 
-    def update(self, other, default=None, collision=OVERWRITE):
-        """Merges one graph with another.  Takes union of edge lists."""
-        #XXX doctest needed
+    def update(self, other, default=None, collision=MERGE_VERTEX):
+        """Merges one graph with another.  Takes union of edge lists.
+        >>> g1, g2 = Graph(), Graph()
+        >>> g1.add(1, [1, 2])
+        >>> g2.add(3, [2, 3]); g2.add(1, 2, 3); g2.add(1, 4, 2)
+        >>> g1.update(g2)
+        >>> print g1
+        {1: {1: 1, 2: 3, 4: 2}, 2: {}, 3: {2: 1, 3: 1}, 4: {}}
+        >>> g2.add(3, 5)  #changes to g2 should not affect g1
+        >>> g1.validate()
+        """
         assert isinstance(other, Graph), "Can only merge Graph types."
         for h in other:
             if h in self:  #do union of edge sets
-                self[h].update(other[h], collision=collision)
-            else:   #otherwise just copy the set
+                collision(self, h, other[h])
+            else:   #otherwise need to copy the set
                 self[h] = other[h].copy() #XXX copy or deepcopy?
 
     def __delitem__(self, head):
         """Delete a single vertex and associated edges.
         >>> g = Graph()
         >>> g.add([1, 2], [1, 2, 3])
-        >>> del g[2]    #will remove vertex 2 and edges [(1, 2), (2, 2)]
+        >>> del g[2]    #will remove vertex 2 and edges [(1, 2), (2, 1), (2, 2), (2, 3)]
         >>> print g
         {1: {1: 1, 3: 1}, 3: {}}
         
         Raises LookupError if given non-existant vertex.
-        >>> del g[5]
+        >>> del g[2]
         Traceback (most recent call last):
         ...
-        KeyError: 5
+        KeyError: 2
         """
         self[head].clear() #removes out vertices
         for v in self[head].in_vertices():

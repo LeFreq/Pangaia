@@ -8,9 +8,9 @@ in another set), that set 'freezes', and becomes immutable.  See
 PEP-0218 for a full discussion.
 """
 
-__version__ = "$Revision: 1.6 $"
+__version__ = "$Revision: 1.7 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2001/09/30 22:37:34 $"
+__date__    = "$Date: 2001/10/01 01:26:02 $"
 
 from copy import deepcopy
 
@@ -367,8 +367,12 @@ if __name__ == "__main__":
     assert len(blue) == 3,  "Length of 3-element set"
 
     # Compare
-    assert green == Set([0]), "Equality failed"
-    assert green != Set([1]), "Inequality failed"
+    assert green == Set([0]),   "Equality failed"
+    assert green != Set([1]),   "Inequality failed"
+    assert green < Set([0, 1]), "Less-than failed"
+    assert green <= Set([0]),   "Less-than-or-equal failed"
+    assert green > Set([]),     "Greater-than failed"
+    assert green >= Set([0]),   "Greater-than-or-equal failed"
 
     # Union
     assert blue  | red   == blue,  "Union non-empty with empty"
@@ -411,5 +415,6 @@ if __name__ == "__main__":
     orange = Set([1, 2, 3])
     orange ^= Set([3, 4])
     assert orange == Set([1, 2, 4]), "In-place symmetric difference"
+
 
     print "All tests passed"

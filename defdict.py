@@ -3,9 +3,9 @@
 
 """Dictionary with default values."""
 
-__version__ = "$Revision: 1.4 $"
+__version__ = "$Revision: 1.5 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/07/02 21:47:29 $"
+__date__    = "$Date: 2002/07/02 21:53:05 $"
 
 import exceptions
 import copy
@@ -30,6 +30,7 @@ def RAISE(ddict, key, new_value): raise KeyAlreadyExists, key
 def ADD(ddict, key, new_value): ddict[key] += new_value
 def MAX(ddict, key, new_value): ddict[key] = max(ddict[key], new_value)
 def MIN(ddict, key, new_value): ddict[key] = min(ddict[key], new_value)
+def OVERWRITE_WITH_COPY(ddict, key, new_value): ddict[key] = copy.copy(new_value)
 
 class defdict(dict):
     """Extends standard dictionary type by allowing user to

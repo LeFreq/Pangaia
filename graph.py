@@ -3,9 +3,9 @@
 
 """Graph class."""
 
-__version__ = "$Revision: 2.12 $"
+__version__ = "$Revision: 2.13 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2003/06/17 06:58:52 $"
+__date__    = "$Date: 2003/06/18 22:31:02 $"
 
 #change a lot of these for loops to use faster map() function (see FAQ and QuickReference)
 #also: map/reduce/filter now work with any iterable object (including dictionaries!)
@@ -34,6 +34,32 @@ NumberType = (int, float, long, complex) #for WeightedVertex validation
 
 class VertexMixin(object):
     """Various common vertex methods."""
+
+    __slots__ = []
+
+    def discard(self, tail):
+        """Removes tail(s) if present, otherwise does nothing.
+
+        >>> g = Graph()
+        >>> g.add(5, range(5))
+        >>> print g[5]
+        {0, 1, 2, 3, 4}
+        >>> g[5].discard(3)     #remove single edge
+        >>> g[5].discard(90)    #discard of non-existent edge ignored
+        >>> g[5].discard([0, 1, 90]) #discard multiple edges
+        >>> print g[5]
+        {2, 4}
+        """
+        try: #single tail removal
+            del self[tail]
+        except LookupError:  return     #ignore non-existent tails
+        except TypeError, error: #must have been given a tail list
+            if not isinstance(tail, list): raise TypeError(error)
+            for t in tail:  #XXX inefficient if self is near empty
+                try:
+                    del self[t]
+                except LookupError:
+                    if not len(self): break  #good place to check if self is empty yet...
 
     def in_vertices(self):  #O(n)
         """Return iterator over the vertices that point to self.
@@ -86,6 +112,8 @@ class VertexMixin(object):
 
 class WeightedEdgeMixin(VertexMixin):
     """Various methods for vertex types that have number edge values."""
+
+    __slots__ = []
 
     def sum_in(self):
         """Return sum of all edges that point to vertex.
@@ -173,30 +201,6 @@ class Vertex(VertexBaseType, VertexMixin):
             if not isinstance(tail, list): raise TypeError(error)
             self.update(tail, edge_value, collision)
 
-    def discard(self, tail):
-        """Removes tail(s) if present, otherwise does nothing.
-
-        >>> g = Graph()
-        >>> g.add(5, range(5))
-        >>> print g[5]
-        {0, 1, 2, 3, 4}
-        >>> g[5].discard(3)     #remove single edge
-        >>> g[5].discard(90)    #discard of non-existent edge ignored
-        >>> g[5].discard([0, 1, 90]) #discard multiple edges
-        >>> print g[5]
-        {2, 4}
-        """
-        try: #single tail removal
-            del self[tail]
-        except LookupError:  return     #ignore non-existent tails
-        except TypeError, error: #must have been given a tail list
-            if not isinstance(tail, list): raise TypeError(error)
-            for t in tail:  #XXX inefficient if self is near empty
-                try:
-                    del self[t]
-                except LookupError:
-                    if not len(self): break  #good place to check if self is empty yet...
-
     def __setitem__(self, tail, value):
         """Set edge value.  If tail does not exist, it is created and added to graph
         if necessary.
@@ -206,6 +210,10 @@ class Vertex(VertexBaseType, VertexMixin):
         >>> g[1][3] += 1    #new tail (3): starts as value False (0), now add 1.
         >>> print g
         {1: {2: 1, 3: 1}, 2: {}, 3: {}}
+        >>> g = Graph()
+        >>> g[1][2] = 3  #can't assign edge values on plain Vertex
+        Traceback (most recent call last):
+        ValueError: Vertex type does not support edge-value assignment.
         """
         if type(self) is Vertex and value!=self.default: raise ValueError("Vertex type does not support edge-value assignment.")
         if tail not in self._graph: #do this first to preserve invariants in case vertex addition fails
@@ -422,8 +430,10 @@ class Graph(GraphBaseType):
         >>> g._validate()
         >>>
         """
-        #convert to VertexType or create copy of VertexType
-        dict.__setitem__(self, vid, self.VertexType(self, vid, value)) #XXX shallow copy
+        if isinstance(value, self.VertexType) and value._id == vid and value._graph == self:
+            dict.__setitem__(self, vid, value)
+        else:        #convert to VertexType or create copy of VertexType
+            dict.__setitem__(self, vid, self.VertexType(self, vid, value)) #XXX shallow copy
 
     def __delitem__(self, head):
         """Delete a single vertex and associated edges.
@@ -470,6 +480,7 @@ class Graph(GraphBaseType):
         1: {0, 1, 2}
         2: {}
         """
+        if _DEBUG: self._validate()
         for vid, v in self.iteritems():
             print "%s: %s" % (vid, v)
 

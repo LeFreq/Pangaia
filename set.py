@@ -8,9 +8,9 @@ in another set), that set 'freezes', and becomes immutable.  See
 PEP-0218 for a full discussion.
 """
 
-__version__ = "$Revision: 1.1 $"
+__version__ = "$Revision: 1.2 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2001/09/25 03:52:05 $"
+__date__    = "$Date: 2001/09/26 02:07:39 $"
 
 from copy import deepcopy
 
@@ -20,33 +20,28 @@ class Set(dictionary):
     _Frozen_Msg = "Set is frozen: %s not permitted"
 
     #----------------------------------------
-    def __init__(self, seq=None, sort_repr=0):
+    def __init__(self, iterable=None):
 
         """Construct a set, optionally initializing it with elements
-        drawn from a sequence.  If 'sort_repr' is true, the set's
-        elements are displayed in sorted order.  This slows down
-        conversion, but simplifies comparison during testing.  The
-        'hashcode' element is given a non-None value the first time
-        the set's hashcode is calculated; the set is frozen
-        thereafter."""
+        drawn from an interable object.  The 'hashcode' element is
+        given a non-None value the first time the set's hashcode is
+        calculated; the set is frozen thereafter."""
 
-        self.sort_repr = sort_repr
-        if seq is not None:
-            for x in seq:
-                self[x] = None
+        if iterable is not None:
+            for item in iterable:
+                self[item] = None
         self.hashcode = None
 
     #----------------------------------------
     def __str__(self):
-        """Convert set to string."""
-        content = self.keys()
-        if self.sort_repr:
-            content.sort()
-        return 'Set(' + `content` + ')'
+        """Return sorted set in standard notation."""
+        content = map(str, self.keys())  #XXX
+        content.sort()
+        return '{' + ', '.join(content) + '}'
 
-    #----------------------------------------
-    # '__repr__' returns the same thing as '__str__'
-    __repr__ = __str__
+    def __repr__(self):
+        """Convert set to string."""
+        return 'Set(' + `self.keys()` + ')'
 
     #----------------------------------------
     def __iter__(self):
@@ -281,7 +276,7 @@ class Set(dictionary):
             pass
 
     #----------------------------------------
-    def popitem(self):
+    def pop(self):
         """Remove and return a randomly-chosen set element."""
 
         if self.hashcode is not None:
@@ -299,7 +294,6 @@ class Set(dictionary):
         return 1
 
     #----------------------------------------
-    # Generic comparison
     def _generic_cmp(self, other, method):
         """Compare one set with another using a dictionary method.
         Sets may only be compared with sets; ordering is determined
@@ -309,19 +303,19 @@ class Set(dictionary):
         return method(self, other)
 
     #----------------------------------------
-    # Check that the other argument to a binary operation is also a
-    # set, and that this set is still mutable (if appropriate),
-    # raising a ValueError if either condition is not met.
     def _binary_sanity_check(self, other, updating_op=''):
+        """Check that the other argument to a binary operation is also a
+        set, and that this set is still mutable (if appropriate),
+        raising a ValueError if either condition is not met."""
         if updating_op and (self.hashcode is not None):
             raise ValueError, Set._Frozen_Msg % updating_op
         if not isinstance(other, Set):
             raise ValueError, "Binary operation only permitted between sets"
 
     #----------------------------------------
-    # Calculate the symmetric difference between the keys in two
-    # dictionaries with don't-care values.
     def _raw_sym_difference(self, left, right):
+        """Calculate the symmetric difference between the keys in two
+        dictionaries with don't-care values."""
         result = {}
         for elt in left:
             if elt not in right:
@@ -342,19 +336,19 @@ if __name__ == "__main__":
     assert `red` == "Set([])", "Empty set: %s" % `red`
 
     # Unit set
-    green = Set((0,), 1)
+    green = Set((0,))
     assert `green` == "Set([0])", "Unit set: %s" % `green`
 
     # 3-element set
-    blue = Set([0, 1, 2], 1)
+    blue = Set([0, 1, 2])
     assert `blue` == "Set([0, 1, 2])", "3-element set: %s" % `blue`
 
     # 2-element set with other values
-    black = Set([0, 5], 1)
+    black = Set([0, 5])
     assert `black` == "Set([0, 5])", "2-element set: %s" % `black`
 
     # All elements from all sets
-    white = Set([0, 1, 2, 5], 1)
+    white = Set([0, 1, 2, 5])
     assert `white` == "Set([0, 1, 2, 5])", "4-element set: %s" % `white`
 
     # Add element to empty set

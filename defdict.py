@@ -3,9 +3,9 @@
 
 """Dictionary with default values."""
 
-__version__ = "$Revision: 1.8 $"
+__version__ = "$Revision: 1.9 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/07/05 00:29:25 $"
+__date__    = "$Date: 2002/07/08 04:44:31 $"
 
 import exceptions
 import copy
@@ -237,18 +237,21 @@ class defdict(dict):
         """
         return self.__class__(self, self.default, copydef=self.copydef)
         
-    def __str__(self):
+    def __str__(self, format_string="%r: %r"):
         """Convert self to string with keys in sorted order.
+        >>> str(defdict())
+        '{}'
         >>> str(defdict({9: 0, 'test': 0, 'a': 0, 0: 0}))
         "{0: 0, 9: 0, 'a': 0, 'test': 0}"
         """
-        if len(self) < 2: return dict.__str__(self)   #nothing to sort
+        if not self: return '{}'    #nothing to sort
         keys = self.keys()
         keys.sort()
+        format_string += ", "
         s = '{'
         #", ".join(map(operator.mod, ["%r: %r"]*len(self), self.items()))
         for k in keys:
-            s+= "%r: %r, " % (k, self[k])
+            s+= format_string % (k, self[k])
         return s[:-2] + '}'
 
 

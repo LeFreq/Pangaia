@@ -1,16 +1,16 @@
 """A class to represent sets in Python.
-This class implements sets as dictionaries whose values are ignored.
-The usual operations (union, intersection, deletion, etc.) are
-provided as both methods and operators.  The only unusual feature of
-this class is that once a set's hash code has been calculated (for
-example, once it has been used as a dictionary key, or as an element
-in another set), that set 'freezes', and becomes immutable.  See
-PEP-0218 for a full discussion.
+This class implements sets as dictionaries whose values are ignored
+but preserved.  The usual operations (union, intersection, deletion,
+etc.) are provided as both methods and operators.  The only unusual
+feature of this class is that once a set's hash code has been
+calculated (for example, once it has been used as a dictionary key,
+or as an element in another set), that set 'freezes', and becomes
+immutable.  See PEP-0218 for a full discussion.
 """
 
-__version__ = "$Revision: 1.7 $"
+__version__ = "$Revision: 1.8 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2001/10/01 01:26:02 $"
+__date__    = "$Date: 2001/10/01 17:14:04 $"
 
 from copy import deepcopy
 
@@ -29,7 +29,7 @@ class Set(dictionary):
         dictionary.__init__(self)
         if iterable is not None:
             try:
-                self.update(iterable)
+                dictionary.update(self, iterable)
             except AttributeError:
                 for item in iterable:
                     self[item] = None
@@ -39,7 +39,7 @@ class Set(dictionary):
     def __str__(self):
         """Return sorted set string in standard notation."""
         content = self.keys()
-        content.sort()
+        content.sort()   #XXX fails if set within set (Set.__lt__ type restriction)
         content = map(str, self.keys())  #XXX
         return '{' + ', '.join(content) + '}'
 
@@ -58,31 +58,29 @@ class Set(dictionary):
     def __lt__(self, other):
         """Return true if self is proper subset of other."""
         if not isinstance(other, Set):
-            raise ValueError, "Sets can only be compared to sets"
+            return type(self) < type(other)
         return len(self) < len(other) and self._within(other)
 
     def __le__(self, other):
         """Return true if self is subset or equal to other."""
         if not isinstance(other, Set):
-            raise ValueError, "Sets can only be compared to sets"
+            return type(self) <= type(other)
         return len(self) <= len(other) and self._within(other)
 
     def __eq__(self, other):
-        if not isinstance(other, Set):
-            raise ValueError, "Sets can only be compared to sets"
-        return len(self)==len(other) and self._within(other)
+        return isinstance(other, Set) and len(self)==len(other) and self._within(other)
 
     def __ne__(self, other):
         return not self.__eq__(other)
 
     def __gt__(self, other):
         if not isinstance(other, Set):
-            raise ValueError, "Sets can only be compared to sets"
+            return type(self) > type(other)
         return len(self) > len(other) and other._within(self)
 
     def __ge__(self, other):
         if not isinstance(other, Set):
-            raise ValueError, "Sets can only be compared to sets"
+            return type(self) >= type(other)
         return len(self) >= len(other) and other._within(self)
 
     is_subset_of        = __le__
@@ -129,7 +127,7 @@ class Set(dictionary):
         result          = Set()
         memo[id(self)]  = result
         for elt in self:
-            result[deepcopy(elt, memo)] = None
+            result[deepcopy(elt, memo)] = deepcopy(self[elt], memo)  #XXX?
         return result
 
     #----------------------------------------
@@ -182,7 +180,7 @@ class Set(dictionary):
         result = Set()
         for elt in little:
             if elt in big:
-                result[elt] = None
+                result[elt] = other[elt]
         return result
 
     #----------------------------------------
@@ -197,7 +195,7 @@ class Set(dictionary):
             try:
                 del self[elt]
             except LookupError:
-                self[elt] = None
+                self[elt] = other[elt]
         return self
 
     #----------------------------------------
@@ -213,7 +211,7 @@ class Set(dictionary):
             try:
                 del result[elt]
             except LookupError:
-                result[elt] = None
+                result[elt] = other[elt]
         return result
 
     #----------------------------------------

@@ -3,9 +3,9 @@
 
 """Graph class."""
 
-__version__ = "$Revision: 1.8 $"
+__version__ = "$Revision: 1.9 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2001/10/19 05:32:39 $"
+__date__    = "$Date: 2001/10/21 00:09:20 $"
 
 #change a lot of these for loops to use faster map() function (see FAQ and QuickReference)
 #remember reduce(lambda x,y: x+y, [1,2,3,4,5]) works for summing all elements...
@@ -36,6 +36,8 @@ class Vertex(VertexBaseType):
     """Vertex holds the set of the vertices of its own outward directed edges.
     Edge values are taken to be arbitrary."""
 
+    __slots__ = ['_graph', '_id']  #Put all Vertex attributes here.  Uses base class' dictionary, instead of creating duplicate
+
     def __init__(self, graph, id):
         """Create a Vertex object in graph, populated with optional tail(s)."""
         VertexBaseType.__init__(self)
@@ -58,7 +60,7 @@ class Vertex(VertexBaseType):
             del self[tail]
         except LookupError:  return
         except TypeError: #must have been given a tail list
-            if not isinstance(tail, list): raise TypeError, "argument must be hashable type or a list object."
+            if not isinstance(tail, list): raise TypeError("argument must be hashable type or a list object.")
             self -= tail
 
     def update(self, tails):
@@ -107,9 +109,9 @@ class Vertex(VertexBaseType):
     copy = __copy__
 
     def validate(self):
-        """Verify Vertex invariants."""
+        """Assert Vertex invariants."""
         assert isinstance(self._graph, BaseGraph)
-        hash(self._id) or self._id==0 #id should be hashable
+        hash(self._id) #id should be hashable
         for t in self:
             assert t in self._graph, "Non-existant tail %s in vertex %s" % (t, self._id)
             assert self[t] == EdgeValue, "Bad value on tail %s in vertex %s" % (t, self._id)
@@ -120,6 +122,8 @@ class BaseGraph(GraphBaseType):
     """Basic class implementing a directed Graph.  Vertices without edges are allowed.
     Self-referencing vertices are allowed."""
     #Basic data structure {vertex id: {t1: edge; t2: edge}
+
+    __slots__ = ['VertexType']
 
     def __init__(self, initgraph=None, VertexType=Vertex):
         """Create the graph, optionally initializing from another graph."""
@@ -144,7 +148,7 @@ class BaseGraph(GraphBaseType):
             if tail != []:
                 self[head]._fastupdate(tail)
         except TypeError:  #multiple head addition
-            if not isinstance(head, list): raise TypeError, "argument must be hashable type or a list object."
+            if not isinstance(head, list): raise TypeError("argument must be hashable type or a list object.")
             for h in head:
                 if h not in self:
                     self[h] = self.VertexType(self, h)
@@ -184,7 +188,7 @@ class BaseGraph(GraphBaseType):
                 del self[head]
             except LookupError: pass   #do nothing if given non-existent vertex
             except TypeError:          #given head list
-                if not isinstance(head, list): raise TypeError, "argument must be hashable type or a list object."
+                if not isinstance(head, list): raise TypeError("argument must be hashable type or a list object.")
                 for h in head:
                     if h in self:
                         self[h].clear()
@@ -209,7 +213,7 @@ class BaseGraph(GraphBaseType):
     def in_vertices(self, vertex):  #O(n)
         """Return iterator over the vertices where vertex is tail."""
         if vertex not in self:
-            raise LookupError, vertex
+            raise LookupError(vertex)
         for h in self:
             if vertex in self[h]:
                 yield h

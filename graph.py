@@ -3,9 +3,9 @@
 
 """Graph class."""
 
-__version__ = "$Revision: 1.12 $"
+__version__ = "$Revision: 1.13 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2001/11/05 01:29:41 $"
+__date__    = "$Date: 2001/11/06 03:36:08 $"
 
 #change a lot of these for loops to use faster map() function (see FAQ and QuickReference)
 #remember reduce(lambda x,y: x+y, [1,2,3,4,5]) works for summing all elements...
@@ -20,6 +20,7 @@ __date__    = "$Date: 2001/11/05 01:29:41 $"
 #  but remember:  premature optimization...
 #XXX Use of exceptions for control flow may prevent seeing actual errors.  Perhaps catch exception, plus error string and assert string is as expected
 #XXX Use super() for calling base class methods
+#perhaps Vertex._fastupdate() should be renamed __iadd__()
 
 from __future__ import generators
 
@@ -30,9 +31,6 @@ EDGEVALUE = 1
 
 _DEBUG = 1
 _PROFILE = 1
-
-#XXX look at graphnew.py and graphpreprenew.py for unincorporated updates
-#XXX perhaps weight parameter should be set to None then edge_value is only changed when non-None
 
 # {{{ BaseVertex
 class BaseVertex(VertexBaseType):
@@ -74,11 +72,21 @@ class BaseVertex(VertexBaseType):
                 self._graph.add(t)    #add tail vertices to graph if necessary
             self[t] = edge_value #appears to be just as fast or faster then checking for existence first (plus keeps standard dict semantics)
 
-    def in_vertices(self):
-        """Return iterator over the vertices where self is the tail vertex."""
-        return self._graph.in_vertices(self._id)
+    def in_vertices(self):  #O(n)
+        """Return iterator over the vertices that point to self."""
+        for h in self._graph:
+            if self._id in self._graph[h]:
+                yield h
 
     out_vertices = VertexBaseType.iterkeys
+
+    def in_degree(self):
+        """Return number of edges pointing into vertex."""
+        i = 0
+        for h in self.in_vertices():
+            i += 1
+        return i
+
     out_degree = VertexBaseType.__len__
 
     def _fastupdate(self, tails, edge_value=EDGEVALUE):
@@ -286,14 +294,6 @@ class BaseGraph(GraphBaseType):
     #__setitem__ #for some reason is called for self[v] -= [tails] so can't remove from interface
     setdefault = None  #XXX this defines an attribute, not re-defines method
 
-    def in_vertices(self, vertex):  #O(n)
-        """Return iterator over the vertices where vertex is tail."""
-        if vertex not in self:
-            raise LookupError(vertex)
-        for h in self:
-            if vertex in self[h]:
-                yield h
-
     def popitem(self):
         """Remove and return one arbitrary vertex-edge tuple.  Preserve graph invariants."""
         for v, tails in self.iteritems(): break  #XXX any better way?
@@ -314,7 +314,7 @@ class BaseGraph(GraphBaseType):
         """Delete a single vertex and associated edges.
         Raises LookupError if given non-existant vertex."""
         self[head].clear() #removes out vertices
-        for v in self.in_vertices(head):
+        for v in self[head].in_vertices():
             del self[v][head]
         GraphBaseType.__delitem__(self, head)
 

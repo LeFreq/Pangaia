@@ -3,27 +3,27 @@
 
 """Network class for flow networks."""
 
-__version__ = "$Revision: 2.4 $"
+__version__ = "$Revision: 2.5 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/08/07 02:25:42 $"
+__date__    = "$Date: 2002/08/08 22:15:58 $"
 
 #Add Network.time to track how many ticks
 
 import random
 from graph import *
+from bag import *
 
 DEFAULT_CAPACITY = 1
 
 class Node(WVertex):
     """Node in a flow network."""
     
-    __slots__ = ['_energy', 'energy_out']
+    __slots__ = ['flow']
     
     def __init__(self, network, id, init={}, capacity=DEFAULT_CAPACITY, collision=ADD):
         super(Node, self).__init__(network, id, init, capacity, collision)
-        self.energy_out = 0
-        self._energy = [0, 0]
-    
+        self.flow = imbag()
+
     def add(self, sink, capacity=DEFAULT_CAPACITY, collision=ADD):
         """Add connection to sink with given capacity (defaults to 1).
         >>> n = Network()
@@ -55,55 +55,55 @@ class Node(WVertex):
         """
         super(Node, self).update(sinks, capacity, collision)
     
-    def __call__(self):
+    def __call__(self, bits):
         """Advance node 1 time increment. Returns amount of energy transferred.
         Should not be run except through Network().
         >>> n = Network()
         >>> n[1][2] = 2
-        >>> n[1].energy = 3
-        >>> n[1]()
+        >>> n.energy[1] = 3
+        >>> n[1](n.energy[1])
         2
+        
+        Negative energy values make eneryg flow in reverse direction.
+        >>> n = Network()
+        >>> n[1][2] = 2
+        >>> n[2].energy = -3
+        >>> n()
+        >>> print n
+        {1: -2 {2: 2}, 2: -1 {}}
         """
-        if not self.energy: #nothing to do
-            self.energy_out = 0
-            return 0
-        paths, self.energy_out, g = [], 0, self._graph
-        if self.energy > 0:
-            for tail, capacity in self.iteritems():
-                paths.extend([tail]*capacity)
+        assert bits #should not be called with 0 bits
+        paths = [] #self.flow.clear()
+        startbits = bits
+        if bits >= 0:
+            paths = reduce(operator.add, [[tail]*capacity for tail, capacity in self.iteritems()], [])
             bit = 1
             assert len(paths) == self.sum_out()
         else:
-            for head in self.in_vertices():
-                paths.extend([head]*g[head][self._id])
+            g = self._graph     #this optimization needed in a list comprehension?
+            paths = reduce(operator.add, [[head]*g[head][self._id] for head in self.in_vertices()], [])
             bit = -1
             assert len(paths) == self.sum_in()
-        while paths and self.energy:
-            path = random.choice(paths)
+        while bits and paths:
+            path = random.choice(paths)     #faster than doing one shuffle at the beginning (v2.2)
+            self.flow[path] += bit
+            bits -= bit
             paths.remove(path)
-            g[path]._newenergy += bit   #move one bit of energy
-            self.energy -= bit
-            self.energy_out += bit
-        #give back left-over energy, if any
-        self._newenergy += self.energy
-        self.energy = 0
-        return self.energy_out
-            
-    def read(self):
-        return self._energy[self._graph._current_state]
-    
-    def write(self, energy):
-        self._energy[self._graph._current_state] = energy
+        #self.energy = bits     #give back left-over energy, if any, for next round
+        return startbits-bits   #bit flow
+
+    def _energy_out(self):
+        return len(self.flow)
         
-    def readnew(self):
-        return self._energy[not self._graph._current_state]
+    def _energy_read(self):
+        return self._graph.energy[self._id]
         
-    def writenew(self, energy):
-        self._energy[not self._graph._current_state] = energy
-    
-    energy = property(read, write, None, "Energy at node.")
-    _newenergy = property(readnew, writenew, None, "Energy for next generation.")
+    def _energy_write(self, value):
+        self._graph.energy[self._id] = value
         
+    energy_out = property(_energy_out, None, None, "Energy out of node.")
+    energy = property(_energy_read, _energy_write, None, "Energy at node. Slow -- use network.energy[id]")
+
     def __str__(self):
         """Returns string with energy level and arc info.
         >>> n = Network()
@@ -124,11 +124,12 @@ class Node(WVertex):
 class Network(Graph):
     """Flow network class."""
 
-    __slots__ = ['ticks', '_current_state']
+    __slots__ = ['energy', 'ticks']
 
     def __init__(self, init={}, VertexType=Node):
         super(Network, self).__init__(init, VertexType)
-        self.ticks = self._current_state = 0
+        self.energy = imbag()
+        self.ticks = 0
 
     def add(self, head, tail=[], capacity=DEFAULT_CAPACITY, edge_collision=ADD):
         """Like Graph.add, but will accumulate edge values, instead of
@@ -147,53 +148,51 @@ class Network(Graph):
         >>> n.add(1, 2, 2)
         >>> n.add(2, 3)
         >>> n.add(3, 1)
-        >>> n[1].energy += 4
+        >>> n.energy[1] += 4
         >>> n()
-        >>> print n.nodes()
-        {1: 2, 2: 2, 3: 0}
+        >>> assert n.energy == {1: 2, 2: 2}
         >>> n()
-        >>> print n.nodes()
-        {1: 0, 2: 3, 3: 1}
-        >>> n[1].energy += 4
+        >>> assert n.energy == {2: 3, 3: 1}
+        >>> n.energy[1] += 4
         >>> n(2)
-        >>> print n.nodes()
-        {1: 2, 2: 5, 3: 1}
+        >>> assert n.energy == {1: 2, 2: 5, 3: 1}
         >>> n.discard(3, 1)
         >>> n.add(2, 1)
         >>> n(100)
-        >>> print n.nodes()
-        {1: 0, 2: 0, 3: 8}
+        >>> assert n.energy == {3: 8}
         """
-        assert count>=0
+        assert count>=0     #may desire count<0 to run in reverse
+        energy = self.energy
         for tic in range(count):
             self.ticks += 1
-            flow = 0
-            for node in self.itervalues():
-                flow += abs(node())
-            self._current_state = not self._current_state
+            flow = 1
+            active_nodes = map(operator.getitem, [self]*len(energy.keys()), energy.iterkeys())
+            for node in active_nodes:
+                node.flow.clear()
+                energy[node._id] -= node(energy[node._id])
+                #energy[node._id] -= flow
+            for node in active_nodes:
+                energy.update(node.flow)
             if flow == 0: break
 
     def node_energy(self):
         """Returns total amount of energy in nodes.
         >>> n = Network()
-        >>> n[1].energy = 4
-        >>> n[3].energy = -1
-        >>> n.energy
+        >>> n.energy[1] = 4
+        >>> n.energy[3] = -1
+        >>> n.total_energy
         3
         """
-        sum = 0
-        for n in self.itervalues():
-            sum += n.energy
-        return sum
+        return len(self.energy)
         
-    energy = property(node_energy, None, None, "Total energy in network.")
+    total_energy = property(node_energy, None, None, "Total energy in network.")
 
     def _flow(self):
         """Returns total amount of energy moved in last tick.
         >>> n = Network()
         >>> n[1][2] = 2
         >>> n[2][3] = 1
-        >>> n[1].energy = 4
+        >>> n.energy[1] = 4
         >>> n()
         >>> n.flow
         2
@@ -208,24 +207,11 @@ class Network(Graph):
 
     flow = property(_flow, None, None, "Total energy moved on last tick.")
         
-    def nodes(self):
-        """Return string of node: energy items.
-        >>> n = Network()
-        >>> n[1][2] = 2
-        >>> n[2][3] = 1
-        >>> n[1].energy += 3
-        >>> n[2].energy += 2
-        >>> n.nodes()
-        '{1: 3, 2: 2, 3: 0}'
-        """
-        if not self: return '{}'    #nothing to sort
-        keys = self.keys()
-        keys.sort()
-        return '{' + ', '.join(["%r: %r" % (k, self[k].energy) for k in keys]) + '}'
-
     def validate(self):
         for node in self.itervalues():
             node.validate()
+        for energy in self.energy.itervalues():
+            assert energy!=0    #should should be in imbag.validate()
         super(Network, self).validate()
         
 def _test():

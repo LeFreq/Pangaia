@@ -3,9 +3,9 @@
 
 """Graph class."""
 
-__version__ = "$Revision: 1.10 $"
+__version__ = "$Revision: 1.11 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2001/10/29 04:43:19 $"
+__date__    = "$Date: 2001/11/04 04:56:08 $"
 
 #change a lot of these for loops to use faster map() function (see FAQ and QuickReference)
 #remember reduce(lambda x,y: x+y, [1,2,3,4,5]) works for summing all elements...
@@ -34,21 +34,21 @@ _PROFILE = 1
 #XXX look at graphnew.py and graphpreprenew.py for unincorporated updates
 #XXX perhaps weight parameter should be set to None then edge_value is only changed when non-None
 
-# {{{ Vertex
-class Vertex(VertexBaseType):
-    """Vertex holds the set of the vertices of its own outward directed edges.
-    Edge values are taken to be arbitrary."""
+# {{{ BaseVertex
+class BaseVertex(VertexBaseType):
+    """BaseVertex holds the set of the vertices of its own outward directed edges.
+    Edge values are user-settable and use overwrite semantics."""
 
     __slots__ = ['_graph', '_id']  #Put all Vertex attributes here.  Uses base class' dictionary, instead of creating duplicate
 
     def __init__(self, graph, id):
-        """Create a Vertex object in graph, populated with optional tail(s)."""
+        """Create a vertex object in graph, populated with optional tail(s)."""
         VertexBaseType.__init__(self)
         self._graph = graph  #graph to which this vertex belongs
         self._id = id
 
     def add(self, tail, edge_value=EDGEVALUE):
-        """Add the tails to Vertex with optional edge value.  Add tails to graph if neeed."""
+        """Add the tails to vertex with optional edge value.  Add tails to graph if neeed."""
         try:  #single tail addition
             if tail not in self._graph:  #"in" raises TypeError if non-hashable
                 self._graph.add(tail)    #add tail vertices to graph if necessary
@@ -67,7 +67,7 @@ class Vertex(VertexBaseType):
             self -= tail
 
     def update(self, tails, edge_value=EDGEVALUE):
-        """Add list of tails from iterable object to Vertex with optional edge value.
+        """Add list of tails from iterable object to vertex with optional edge value.
         Adds tails to graph if needed."""
         for t in tails:
             if t not in self._graph:
@@ -87,7 +87,7 @@ class Vertex(VertexBaseType):
             self[tails] = edge_value #XXX v2.2b1 seems to allow subclassed dictionarys to be hashable
         except TypeError:  #must be unhashable: list or dict
             try:  #check if given dictionary with tails, then do super-fast addition of tails
-                #XXX Note: if Vertex values are non-simple objects, then update will copy same objects to other vertices.
+                #XXX Note: if BaseVertex values are non-simple objects, then update will copy same objects to other vertices.
                 dictionary.update(self, tails)
             except AttributeError:
                 for t in tails:
@@ -108,7 +108,7 @@ class Vertex(VertexBaseType):
         return "{%s| %s}" % (self._id, `self.keys()`[1:-1])
 
     def __copy__(self):
-        """Make a copy of the Vertex: tail set."""
+        """Make a copy of the vertex tail set."""
         result = self.__class__(self._graph, self._id)
         dictionary.update(result, self) #XXX shallow copy assumes EDGEVALUE is simple type!
         return result
@@ -125,6 +125,55 @@ class Vertex(VertexBaseType):
         for t in self:
             assert t in self._graph, "Non-existant tail %s in vertex %s" % (t, self._id)
             assert type(self[t]) is type(EDGEVALUE), "Bad value on tail %s in vertex %s" % (t, self._id)
+# }}} BaseVertex
+# {{{ Vertex
+class Vertex(BaseVertex):
+    """Vertex expands on BaseVertex class by allowing user to set a policy function
+    to be called with a tail is added to the vertex that already exists.
+    Users can derive from this class and override collide_edge() to
+    set different policies."""
+
+    def collide_edge(self, tail, other_value):
+        """This functions determines the policy for tail additions
+        when tail is already in vertex."""
+        self[tail] += other_value
+
+    def add(self, tail, edge_value=EDGEVALUE):
+        """Add the tails to Vertex with optional edge value.  Add tails to graph if neeed."""
+        try:  #single tail addition
+            if tail in self:  #"in" raises TypeError if tail non-hashable
+                self.collide_edge(tail, edge_value)
+            else:
+                self._graph.add(tail)    #add tail vertices to graph if necessary
+                self[tail] = edge_value
+        except TypeError:  #multiple tail addition
+            self.update(tail, edge_value)
+
+    def update(self, tails, edge_value=EDGEVALUE):
+        """Add list of tails from iterable object to Vertex with optional edge value.
+        Adds tails to graph if needed."""
+        for t in tails:
+            if t in self:
+                self.collide_edge(t, edge_value)
+            else:
+                self._graph.add(t)    #add tail vertices to graph if necessary
+                self[t] = edge_value #appears to be just as fast or faster then checking for existence first (plus keeps standard dict semantics)
+
+    def _fastupdate(self, tails, edge_value=EDGEVALUE):
+        """Add list of tails without checking for existence in graph."""
+        try: #simple tail
+            if tails in self:
+                self.collide_edge(tails, edge_value)
+            else:
+                self[tails] = edge_value #XXX v2.2b1 seems to allow subclassed dictionarys to be hashable
+        except TypeError:  #must be unhashable: list or dict
+            collide = self.collide_edge
+            for t in tails:
+                if t in self:
+                    collide(t, edge_value)
+                else:
+                    self[t] = edge_value
+
 # }}} Vertex
 
 # {{{ BaseGraph class
@@ -135,9 +184,9 @@ class BaseGraph(GraphBaseType):
 
     __slots__ = ['VertexType']
 
-    def __init__(self, initgraph=None, VertexType=Vertex):
+    def __init__(self, initgraph=None, VertexType=BaseVertex):
         """Create the graph, optionally initializing from another graph.
-        Optional VertexType parameter can be passed to specify default Vertex type."""
+        Optional VertexType parameter can be passed to specify default vertex type."""
         GraphBaseType.__init__(self)
         self.VertexType = VertexType
         if initgraph is not None:
@@ -266,7 +315,7 @@ class BaseGraph(GraphBaseType):
         """Check graph invariants."""
         #NOTE:  calling this after each insert/remove slows things down considerably!
         for v in self.vertices():
-            assert isinstance(self[v], self.VertexType), "Vertex type not found on " + str(v)
+            assert isinstance(self[v], self.VertexType), "vertex type not found on " + str(v)
             self[v].validate()
 
 # }}} BaseGraph
@@ -330,5 +379,5 @@ def test(g, size=100):
         g.clear()
 
 if __name__ == '__main__':
-    g=BaseGraph()
+    g=BaseGraph(VertexType=Vertex)
     test(g, 100)

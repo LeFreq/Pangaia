@@ -8,7 +8,7 @@ in another set), that set 'freezes', and becomes immutable.  See
 PEP-0218 for a full discussion.
 """
 
-__version__ = "$Revision: 1.1 $"
+__version__ = "$Revision: 1.1.1.1 $"
 __author__  = "$Author: average $"
 __date__    = "$Date: 2001/09/25 03:52:05 $"
 

@@ -3,9 +3,9 @@
 
 """Graph class."""
 
-__version__ = "$Revision: 2.4 $"
+__version__ = "$Revision: 2.5 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/07/10 20:24:08 $"
+__date__    = "$Date: 2002/07/10 21:37:33 $"
 
 #change a lot of these for loops to use faster map() function (see FAQ and QuickReference)
 #remember reduce(lambda x,y: x+y, [1,2,3,4,5]) works for summing all elements...
@@ -75,7 +75,7 @@ class Vertex(VertexBaseType):
         
     def add(self, tail, edge_value=USE_DEFAULT, collision=OVERWRITE_DEFAULT):
         """Add the tails to Vertex with optional edge value.  Add tails to graph if needed.
-        >>> g = Graph()
+        >>> g = Graph(VertexType=WVertex)
         >>> g.add(5)        #add vertex with id=5 to graph, default edge value=1
         >>> g[5].add(5)     #edges pointing back to self are allowed
         >>> g[5].add(7, 42) #add single out-edge from vertex 5 to 7 with weight 42
@@ -98,7 +98,7 @@ class Vertex(VertexBaseType):
             
     def update(self, tails, edge_value=USE_DEFAULT, collision=OVERWRITE):
         """Like dict.update, but will also add tails to Graph.
-        >>> g = Graph()
+        >>> g = Graph(VertexType=WVertex)
         >>> g.add(5)
         >>> g[5].update([1, 3, 5], 2)  #add the three tail vertices to vertex 5 with weight 2
         >>> print g[5]
@@ -226,13 +226,23 @@ class VMixin:
         return reduce(lambda t1, t2: t1+t2, self.itervalues(), 0)  #use operator.add instead of lambda?
 
     def __str__(self, format_string="%r: %r"):
-        """Return string of tail vertices in set notation."""
+        """Return string of tail vertices with edge weight values.
+        >>> g = Graph(VertexType=WVertex)
+        >>> g.add(1, [1, 3, 4]); g.add(1, 3, 7)
+        >>> print g[1]
+        {1: 1, 3: 7, 4: 1}
+        """
         if _DEBUG: self.validate()
         return super(Vertex, self).__str__(format_string)
+        
+    def validate(self):
+        Vertex.validate(self)
+        for weight in self.itervalues():
+            assert isinstance(weight, (int, float, complex, long))
 
 # }}} VMixin
 
-class WVertex(Vertex, VMixin):
+class WVertex(VMixin, Vertex):
     """Vertex with methods to sum edge weights."""
 
 def MERGE_VERTEX(g, h, vert): g[h].update(vert)
@@ -250,7 +260,7 @@ class Graph(GraphBaseType):
     def __init__(self, initgraph=None, VertexType=Vertex):
         """Create the graph, optionally initializing from another graph.
         Optional VertexType parameter can be passed to specify default vertex type.
-        >>> g=Graph()
+        >>> g = Graph()
         >>> len(g), g
         (0, {})
         >>> g.add([1, 2, 3], [2, 3])
@@ -271,7 +281,7 @@ class Graph(GraphBaseType):
         """Add the vertices and/or edges.
         Parameters can be single vertex or list of vertices.
         If no second parameter given, assume vertex addition only.
-        >>> g=Graph()
+        >>> g = Graph()
         >>> g.add(1)            #single vertex addition
         >>> g.add(1)            #adding existing vertex is ignored
         >>> g.add([2, 3, 4])    #multiple vertex addition
@@ -359,13 +369,13 @@ class Graph(GraphBaseType):
     #__setitem__ #for some reason is called for self[v] -= [tails] so can't remove from interface
 
     def popitem(self):
-        """Remove and return one arbitrary vertex-edge tuple.  Preserve graph invariants.
+        """Remove and return one arbitrary vertex, edge tuple.  Preserve graph invariants.
         >>> g = Graph()
         >>> g.add(range(3),range(3))
-        >>> g.popitem()
-        (0, {0: 1, 1: 1, 2: 1})
-        >>> assert len(g)==2
-        >>> assert len(g[1])==2 and len(g[2])==2
+        >>> id = g.popitem()[0]
+        >>> assert id not in g and len(g)==2
+        >>> for v in g.itervalues():
+        ...     assert id not in v and len(v)==2
         """
         #XXX doctest assumes dictionary order
         for v, tails in self.iteritems(): break  #XXX any better way?
@@ -375,7 +385,7 @@ class Graph(GraphBaseType):
 
     def update(self, other, default=None, collision=MERGE_VERTEX):
         """Merges one graph with another.  Takes union of edge lists.
-        >>> g1, g2 = Graph(), Graph()
+        >>> g1, g2 = Graph(VertexType=WVertex), Graph()
         >>> g1.add(1, [1, 2])
         >>> g2.add(3, [2, 3]); g2.add(1, 2, 3); g2.add(1, 4, 2)
         >>> g1.update(g2)
@@ -389,7 +399,7 @@ class Graph(GraphBaseType):
             if h in self:  #do union of edge sets
                 collision(self, h, other[h])
             else:   #otherwise need to copy the set
-                self[h] = other[h].copy() #XXX copy or deepcopy?
+                self[h] = self.VertexType(self, h, other[h], other[h].default) #XXX shallow copy
 
     def __delitem__(self, head):
         """Delete a single vertex and associated edges.
@@ -419,36 +429,35 @@ class Graph(GraphBaseType):
 
     def validate(self):
         """Check graph invariants."""
-        #NOTE:  calling this after each insert/remove slows things down considerably!
+        #NOTE:  calling this after each add/discard slows things down considerably!
         for v in self.vertices():
             assert isinstance(self[v], self.VertexType), "vertex type not found on " + str(v)
             self[v].validate()
 
 # }}} Graph
 
-def test(g, size=100):
+def profile(g):
     import time
-    if _PROFILE:
-        print "Profiling (ignoring debug)..."
-        _DEBUG = 0
-        for i in [1,2]:
-            start=time.clock()
-            g.add(range(1000),range(100,1100))
-            finish=time.clock()
-            print "Add 1000, 100-1100; pass %i: %5.2fs" %  (i, (finish-start))
-        for i in [1,2]:
-            start=time.clock()
-            g.discard(range(1050), range(100))#, range(1000))
-            finish=time.clock()
-            print "Discard 1050, 100; pass %i:  %5.2fs" % (i, (finish-start))
-        g.clear()
-        g.add(0)
-        for i in [1,2]:
-            start=time.clock()
-            g[0].update(range(1000))
-            finish=time.clock()
-            print "Update 1000, 1000; pass %i:  %5.2fs" % (i, (finish-start))
-        g.clear()
+    print "Profiling (ignoring debug)..."
+    _DEBUG = 0
+    for i in [1,2]:
+        start=time.clock()
+        g.add(range(1000),range(100,1100))
+        finish=time.clock()
+        print "Add 1000, 100-1100; pass %i: %5.2fs" %  (i, (finish-start))
+    for i in [1,2]:
+        start=time.clock()
+        g.discard(range(1050), range(100))#, range(1000))
+        finish=time.clock()
+        print "Discard 1050, 100; pass %i:  %5.2fs" % (i, (finish-start))
+    g.clear()
+    g.add(0)
+    for i in [1,2]:
+        start=time.clock()
+        g[0].update(range(1000))
+        finish=time.clock()
+        print "Update 1000, 1000; pass %i:  %5.2fs" % (i, (finish-start))
+    g.clear()
 
 def _test():
     import doctest, graph

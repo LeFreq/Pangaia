@@ -3,9 +3,9 @@
 
 """Bag types"""
 
-__version__ = "$Revision: 2.6 $"
+__version__ = "$Revision: 2.7 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2003/06/07 22:16:35 $"
+__date__    = "$Date: 2003/06/10 00:36:07 $"
 
 #bag should have list interface? --should add list methods: append, remove, min/max,  __str__ return list string, etc.
 #   in addition to min/max(), perhaps create most/least() to return the item with the highest/lowest count
@@ -30,55 +30,28 @@ class imbag(dict):
 
     def __init__(self, init={}):
         """Initialize bag with optional contents.
+
         >>> b = bag()   #creates empty bag
         >>> b
         {}
-        >>> ib = imbag({1: -1, 2: 0, 3: -9})
-        >>> assert ib == {1: -1, 3: -9}
+        >>> print imbag({1: -1, 2: 0, 3: -9})
+        {1: -1, 3: -9}
+
+        Can initialize with (key, count) list as in standard dict.
+        However, duplicate keys will accumulate counts:
+        >>> print bag([(1, 2), (2, 4), (1, 7)])
+        {1: 9, 2: 4}
         """
-        #XXX use new fromkeys method for sequence inits!
-        if init=={} or isinstance(init, self.__class__) or init==[]:
+        if not init or isinstance(init, self.__class__):
             dict.__init__(self, init)   #values known to be good, use faster dict creation
-        else:
+        else:   #initializing with list or plain dict
             dict.__init__(self)
-            if isinstance(init, dict): self.update(init)
-            else: self += init
-
-    def update(self, items):
-        """Adds contents to bag.  Takes dictionary type.
-        >>> ib = imbag('abc')
-        >>> ib.update({'a': 2, 'b': 1, 'c': 0})
-        >>> assert ib == {'a': 3, 'b': 2, 'c': 1}
-
-        Negative updates are allowable.
-        >>> ib.update({'a': -2, 'b': -2, 'c': -2, 'd': 2})
-        >>> assert ib == {'a': 1, 'c': -1, 'd': 2}
-
-        Invalid values are skipped, and will raise TypeError.
-        >>> ib.update({0: 'test1', 'a': 'test2', 'd': 3, 'f': 1.0, 'c': 2.0})
-        Traceback (most recent call last):
-        ...
-        TypeError: must use integral type for bag values, not <type 'float'>
-        >>> assert ib == {'a': 1, 'c': -1, 'd': 5}
-
-        Trying to update bag with negative values raises ValueError:
-        >>> b = bag()
-        >>> b.update(ib)
-        Traceback (most recent call last):
-        ...
-        ValueError: bag values must be non-negative: -1
-        """
-        #XXX may be able to improve this by calling dict methods directly and/or using map and operator functions
-        #we don't want to abort mid-update, so validate at end of loop
-        #XXX should raise exception and return unchanged self if problem encountered!
-        bad_value_encountered = False
-        for key, count in items.iteritems():
-            try:
-                self[key] += count  #may be slower than necessary
-            except (TypeError, ValueError):
-                bad_value_encountered, bad_value = True, count
-        if bad_value_encountered: self._test_invariant(bad_value)
-        #if not isinstance(items, imbag): self._validate()
+            if isinstance(init, dict):
+                for key, count in init.iteritems():
+                    self[key] = count #will test invariants
+            else:       #sequence may contain duplicates, so add to existing value, if any
+                for key, count in init:
+                    self[key] += count
 
     def fromkeys(cls, iterable, count=1):
         """Class method which creates bag from iterable adding optional count for each item.
@@ -89,86 +62,130 @@ class imbag(dict):
         >>> assert b == b2 == b3
 
         >>> word_count = bag.fromkeys("how much wood could a wood chuck chuck".split())
-        >>> assert word_count == {'how': 1, 'much': 1, 'wood': 2, 'could': 1, 'a': 1, 'chuck': 2}
+        >>> print word_count
+        {'a': 1, 'chuck': 2, 'could': 1, 'how': 1, 'much': 1, 'wood': 2}
 
         An optional count can be specified.  Count added each time item is encountered.
-        >>> assert bag.fromkeys("abacab", 5) == {'a': 15, 'b': 10, 'c': 5}
+        >>> print bag.fromkeys("abacab", 5)
+        {'a': 15, 'b': 10, 'c': 5}
         """
         b = cls()
-        b._test_invariant(count)
         for key in iterable:
-            if key in b:
-                dict.__setitem__(b, key, dict.__getitem__(b, key) + count)
-            else:
-                dict.__setitem__(b, key, count)
+            b[key] += count  #perhaps slower than necessary but will simplify derived classes that override __setitem__()
         return b
 
     fromkeys = classmethod(fromkeys)
+
+    def update(self, items):
+        """Adds contents to bag from other dictionary type.
+
+        >>> ib = imbag.fromkeys('abc')
+        >>> ib.update({'a': 2, 'b': 1, 'c': 0})
+        >>> print ib
+        {'a': 3, 'b': 2, 'c': 1}
+
+        Negative updates are allowable.
+        >>> ib.update({'a': -2, 'b': -2, 'c': -2, 'd': 2})
+        >>> print ib
+        {'a': 1, 'c': -1, 'd': 2}
+
+        Invalid values are skipped, and will raise TypeError.
+        >>> ib.update({0: 'test1', 'a': 'test2', 'd': 3, 'f': 1.0, 'c': 2.0})
+        Traceback (most recent call last):
+        ...
+        TypeError: must use integral type for bag values, not <type 'float'>
+        >>> print ib
+        {'a': 1, 'c': -1, 'd': 5}
+
+        Updating bag with values that would cause the count to go negative raises ValueError,
+        leaving value unaffected.  Other elements still get updated:
+        >>> b = bag({'a': 1, 'c': 2, 'd': 5})
+        >>> b.update({'a': -4, 'c': -2, 'd': -2})
+        Traceback (most recent call last):
+        ...
+        ValueError: bag values must be non-negative: -4
+        >>> print b
+        {'a': 1, 'd': 3}
+
+        NOTE:  Exceptions above are only reported on the first bad element encountered.
+        """
+        #XXX may be able to improve this by calling dict methods directly and/or using map and operator functions
+        #we don't want to abort mid-update, so validate at end of loop
+        #XXX should raise exception and return unchanged self if problem encountered!
+        bad_value_encountered = False
+        for key, count in items.iteritems():
+            try:
+                self[key] += count  #may be slower than necessary
+            except (TypeError, ValueError):
+                bad_value_encountered, bad_value = True, count
+        if bad_value_encountered: self._check_value(bad_value)
 
     def pop(self):
         """Removes and returns one item from the bag."""
         raise NotImplementedError #XXX
 
-    def discard(self, item, count=None):
-        """Removes count number of the specified item.  If count is not
-        specified, then item is completely discarded.  If item does not
-        exist, then it is ignored.
-        >>> b = bag("abacab")
-        >>> b.discard('b')
-        >>> b.discard('a', 1)
-        >>> assert b == {'a': 2, 'c': 1}
-        """
-        if count==None:
-            try: del self[item]
-            except KeyError: pass
-        else:
-            self[item] -= count
+    def discard(self, item):
+        """Removes all of the specified item if it exists, otherwise ignored.
 
-    def setdefault(self, key, count=1):
-        #XXX perhaps remove this on bag
-        self._test_invariant(count)
-        if count:  return dict.setdefault(self, key, count)
-        else:  return self[key]
+        >>> b = bag.fromkeys("abacab")
+        >>> b.discard('b')
+        >>> b.discard('d')  #non-existent items ignored
+        >>> print b
+        {'a': 3, 'c': 1}
+        """
+        #XXX what if imbag bag counts are negative?
+        try: del self[item]
+        except KeyError: pass
+
+    def setdefault(self, item, count=1):
+        #XXX perhaps remove this on bag, may not even be accurate
+        self._check_value(count)
+        if count:  return dict.setdefault(self, item, count)
+        else:  return self[item]
 
     def __iadd__(self, iterable):
         """Add items in iterable object to bag.
+
         >>> b = bag()
         >>> b += [1, 2, 1, 0]
-        >>> assert b == {0: 1, 1: 2, 2: 1}
+        >>> print b
+        {0: 1, 1: 2, 2: 1}
         >>> b.clear()
         >>> b += "abca"
-        >>> assert b == {'a': 2, 'b': 1, 'c': 1}
+        >>> print b
+        {'a': 2, 'b': 1, 'c': 1}
         """
         for key in iterable:
-            if key in self:
-                newvalue = dict.__getitem__(self, key) + 1
-                if newvalue: dict.__setitem__(self, key, newvalue)
-                else: del self[key]
-            else:
-                dict.__setitem__(self, key, 1)
+            self[key] += 1
         return self
 
     def __isub__(self, iterable):
         """Subtract items in iterable object from bag.
-        >>> b = bag("abacab")
+
+        >>> b = bag.fromkeys("abacab")
         >>> b -= "cab"
-        >>> assert b == {'a': 2, 'b': 1}
+        >>> print b
+        {'a': 2, 'b': 1}
         """
         #XXX Should this method be removed? (list doesn't support it)  What should happen if item not in bag?
+        #XXX what should happen if item doesn't exist?
         for item in iterable:
             self[item] -= 1
         return self
 
     def __imul__(self, factor):
         """Multiply bag contents by factor.
-        >>> b = bag("abacab")
+
+        >>> b = bag.fromkeys("abacab")
         >>> b *= 4
-        >>> assert b == {'a': 12, 'b': 8, 'c': 4}
+        >>> print b
+        {'a': 12, 'b': 8, 'c': 4}
 
         Negative factors can be used with imbag.
         >>> ib = imbag(b)
         >>> ib *= -1
-        >>> assert ib == {'a': -12, 'b': -8, 'c': -4}
+        >>> print ib
+        {'a': -12, 'b': -8, 'c': -4}
 
         Trying that on a standard bag will raise ValueError.
         >>> b *= -1
@@ -182,49 +199,53 @@ class imbag(dict):
         {}
 
         """
-        self._test_invariant(factor)
+        self._check_value(factor)
         if factor:
             for item, count in self.iteritems():
                 dict.__setitem__(self, item, count*factor) #bypass test logic in bag.__setitem__
         else:   #factor==0
-            self.clear()
+            dict.clear(self)    #call dict.clear to protect subclass which might override and do other things besides clear dict values
         return self
 
     def __abs__(self):
         """Returns sum of absolute value of item counts in bag.
-        >>> b = imbag("abacab")
+
+        >>> b = imbag.fromkeys("abacab")
         >>> b['a'] = -4
         >>> abs(b)
         7
         """
         return sum(map(abs, self.itervalues()))
 
-    def __getitem__(self, key):
-        """Returns total count for given item.  If
-        item not in bag, then returns 0.
-        >>> b = bag("abacab")
+    def __getitem__(self, item):
+        """Returns total count for given item, or zero if item not in bag.
+
+        >>> b = bag.fromkeys("abacab")
         >>> b['a']
         3
         >>> b['d']
         0
         """
-        if key in self: #seems faster than try/except
-            return dict.__getitem__(self, key)
+        if item in self: #seems faster than try/except
+            return dict.__getitem__(self, item)
         else:
             return 0
 
     count = __getitem__
 
     def __setitem__(self, item, count):
-        """Sets the count for the given item in bag.
-        >>> b = bag([1, 2, 3])
+        """Sets the count for the given item in bag, removing if zero.
+
+        >>> b = bag.fromkeys([1, 2, 3])
         >>> b[1] = 3
         >>> b[4] = 2L   #long values okay
-        >>> assert b == {1: 3, 2: 1, 3: 1, 4: 2}
+        >>> print b
+        {1: 3, 2: 1, 3: 1, 4: 2L}
 
         If count is zero, all 'matching items' are deleted from bag.
         >>> b[2] = 0
-        >>> assert b == {1: 3, 3: 1, 4: 2}
+        >>> print b
+        {1: 3, 3: 1, 4: 2L}
 
         Counts for imbag are allowed to be negative.
         >>> ib = imbag(b)
@@ -232,7 +253,8 @@ class imbag(dict):
         >>> ib[5] -= 2
         >>> ib[1] -= 4
         >>> ib[3] -= 1
-        >>> assert ib == {1: -1, 4: -2, 5: -2}
+        >>> print ib
+        {1: -1, 4: -2, 5: -2}
 
         Setting negative values on standard bag raises ValueError.
         >>> b[4] = -2
@@ -246,7 +268,7 @@ class imbag(dict):
         ...
         TypeError: must use integral type for bag values, not <type 'str'>
         """
-        self._test_invariant(count)
+        self._check_value(count)
         if count:
             dict.__setitem__(self, item, count)
         else:   #setting to 0 so delete key
@@ -255,7 +277,8 @@ class imbag(dict):
 
     def __iter__(self):
         """Will iterate through all items in bag individually.
-        >>> b = bag("abacab")
+
+        >>> b = bag.fromkeys("abacab")
         >>> l = list(b); l.sort()
         >>> l
         ['a', 'a', 'a', 'b', 'b', 'c']
@@ -264,6 +287,11 @@ class imbag(dict):
         >>> l = list(b); l.sort()
         >>> l
         ['a', 'a', 'a', 'b', 'b', 'c']
+
+        If you want to iterate through unique keys in bag, use iterkeys():
+        >>> l = list(b.iterkeys()) ; l.sort()
+        >>> l
+        ['a', 'b', 'c']
         """
         #XXX list(b) != imbag(list(b))
         for key, count in self.iteritems():
@@ -272,29 +300,31 @@ class imbag(dict):
 
     def __str__(self):
         """Convert self to string with items in sorted order.
+
         >>> str(imbag())
-        '[]'
-        >>> str(imbag({'b': -2, 'a': 3, 'c': 1}))
-        "['a', 'a', 'a', 'b', 'b', 'c']"
-        >>> str(bag("abacab"))
-        "['a', 'a', 'a', 'b', 'b', 'c']"
+        '{}'
+        >>> str(imbag({'b': -2, 'a': 3, 'c': 1, 1: 0}))
+        "{'a': 3, 'b': -2, 'c': 1}"
+        >>> str(bag.fromkeys("abacab"))
+        "{'a': 3, 'b': 2, 'c': 1}"
         """
         #sort by values, largest first? should we sort at all?
+        if not self: return '{}'    #nothing to sort
         self._validate()
-        l = list(self)
-        l.sort()
-        return str(l)
+        keys = self.keys()
+        keys.sort()
+        return '{%s}' % ', '.join(["%r: %r" % (k, self[k]) for k in keys])
 
-    def _test_invariant(value):
+    def _check_value(value):
         """Raises TypeError if value is not integral type."""
         if not isinstance(value, IntegerType):
-            raise TypeError, "must use integral type for bag values, not %r" % type(value)
+            raise TypeError("must use integral type for bag values, not %r" % type(value))
 
-    _test_invariant = staticmethod(_test_invariant)
+    _check_value = staticmethod(_check_value)
 
     def _validate(self):
         for count in self.itervalues():
-            self._test_invariant(count)
+            self._check_value(count)
             assert count
 
 
@@ -305,35 +335,36 @@ class bag(imbag):
 
     def __len__(self):
         """Returns total number of items in bag.
-        >>> b = bag("abacab")
+
+        >>> b = bag.fromkeys("abacab")
         >>> len(b)
         6
         """
         return sum(self.itervalues())
 
-    def _test_invariant(value):
+    def _check_value(value):
         """Tests baseclass invariants, plus raises ValueError if value is negative. """
-        imbag._test_invariant(value)
+        imbag._check_value(value)
         if value < 0:
-            raise ValueError, "bag values must be non-negative: %r" % value
+            raise ValueError("bag values must be non-negative: %r" % value)
 
-    _test_invariant = staticmethod(_test_invariant)
+    _check_value = staticmethod(_check_value)
 
 
 def _test():
     """Miscillaneous tests:
 
     Equality test.  Can compare against dictionary or bag types.
-    >>> bag("abacab") == {'a': 3, 'b': 2, 'c': 1}
+    >>> bag.fromkeys("abacab") == {'a': 3, 'b': 2, 'c': 1}
     True
-    >>> b, l = bag([1, 2, 1, 3, 1]), [1, 1, 1, 3, 2]
+    >>> b, l = bag.fromkeys([1, 2, 1, 3, 1]), [1, 1, 1, 3, 2]
     >>> b == l
     False
-    >>> b == bag(l)
+    >>> b == bag.fromkeys(l) == imbag.fromkeys(l)
     True
-    >>> b = bag()
 
     Tests for non-zero:
+    >>> b = bag()
     >>> bool(b)
     False
     >>> b += [0]

@@ -3,9 +3,9 @@
 
 """Bag types"""
 
-__version__ = "$Revision: 2.2 $"
+__version__ = "$Revision: 2.3 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/08/09 21:42:01 $"
+__date__    = "$Date: 2002/08/11 07:53:23 $"
 
 import operator
 
@@ -37,7 +37,7 @@ class imbag(dict):
         """
         if isinstance(init, dict) or init==[]:
             dict.__init__(self, init)
-            if not isinstance(init, imbag):   #non-bag may have questionble count values
+            if init!={} and not isinstance(init, imbag):   #non-bag may have questionble count values
                 self._validate()
         else:   #assume sequence initializer
             dict.__init__(self)
@@ -58,23 +58,36 @@ class imbag(dict):
         >>> b.update({0: 'test1', 'a': 'test2', 'd': 3, 'f': 1.0})
         Traceback (most recent call last):
         ...
-        TypeError: value must be integral type, not <type 'str'>
+        TypeError: unsupported operand types for +: 'int' and 'str'
         """
-        #XXX require or check for bag type, then can drop two conditionals on each iteration
         for key, count in items.iteritems():
-            if not isinstance(count, IntegerType): raise TypeError, "value must be integral type, not %r" % type(count)
-            elif not count: continue  #nothing to add
-            elif key in self:
+            if key in self:
                 newvalue = dict.__getitem__(self, key) + count
                 if newvalue: dict.__setitem__(self, key, newvalue)
                 else: del self[key]
             else:
                 dict.__setitem__(self, key, count)
-            #self[key] += count  #about twice as slow than above XXX fix __iadd__ too?
+            #self[key] += count  #about twice as slow than above
+        if not isinstance(items, imbag): self._validate()
     
     def pop(self):
         raise NotImplemented #XXX
     
+    def discard(self, item, count=None):
+        """Removes count number of the specified item.  If count is not
+        specified, then item is completely discarded.  If item does not
+        exist, then it is ignored.
+        >>> b = bag("abacab")
+        >>> b.discard('b')
+        >>> b.discard('a', 1)
+        >>> assert b == {'a': 2, 'c': 1}
+        """
+        if count==None:
+            try: del self[item]
+            except KeyError: pass
+        else:
+            self[item] -= count
+
     def __iadd__(self, items):
         """Add items in iterable object to bag.
         >>> b = bag()
@@ -84,8 +97,13 @@ class imbag(dict):
         >>> b += "abca"
         >>> assert b == {'a': 2, 'b': 1, 'c': 1}
         """
-        for item in items:
-            self[item] += 1
+        for key in items:
+            if key in self:  
+                newvalue = dict.__getitem__(self, key) + 1
+                if newvalue: dict.__setitem__(self, key, newvalue)
+                else: del self[key]
+            else:
+                dict.__setitem__(self, key, 1)
         return self
             
     def __isub__(self, items):

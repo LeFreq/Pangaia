@@ -8,13 +8,13 @@ or as an element in another set), that set 'freezes', and becomes
 immutable.  See PEP-0218 for a full discussion.
 """
 
-__version__ = "$Revision: 1.8 $"
+__version__ = "$Revision: 1.9 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2001/10/01 17:14:04 $"
+__date__    = "$Date: 2001/10/04 02:03:21 $"
 
 from copy import deepcopy
 
-class Set(dictionary):
+class Set:
 
     # Displayed when operation forbidden because set has been frozen
     _Frozen_Msg = "Set is frozen: %s not permitted"
@@ -26,32 +26,36 @@ class Set(dictionary):
         given a non-None value the first time the set's hashcode is
         calculated; the set is frozen thereafter."""
 
-        dictionary.__init__(self)
-        if iterable is not None:
-            try:
-                dictionary.update(self, iterable)
-            except AttributeError:
-                for item in iterable:
-                    self[item] = None
+        self.data = {}
         self.hashcode = None
+        if iterable is not None:
+            self.update(iterable)
 
     #----------------------------------------
     def __str__(self):
         """Return sorted set string in standard notation."""
-        content = self.keys()
-        content.sort()   #XXX fails if set within set (Set.__lt__ type restriction)
-        content = map(str, self.keys())  #XXX
-        return '{' + ', '.join(content) + '}'
+        content = self.data.keys()
+        content.sort()
+        return '{' + ', '.join(map(str, content)) + '}'  #XXX map-str desirable?
 
     def __repr__(self):
         """Convert set to string."""
-        return 'Set(' + `self.keys()` + ')'
+        return 'Set(' + `self.data.keys()` + ')'
 
     #----------------------------------------
-    def __iter__(self):
+    def __iter__(self):   #this method unnecessary??
         """Return iterator for enumerating set elements.  This is a
         keys iterator for the underlying dictionary."""
-        return self.iterkeys()
+        return self.data.iterkeys()
+
+    def __len__(self):
+        """Return size of set."""
+        return len(self.data)
+
+    def __contains__(self, item):
+        """Return non-zero if item is an element of set."""
+        print "test"
+        return item in self.data
 
     #----------------------------------------
     # Comparisons
@@ -64,7 +68,7 @@ class Set(dictionary):
     def __le__(self, other):
         """Return true if self is subset or equal to other."""
         if not isinstance(other, Set):
-            return type(self) <= type(other)
+            return type(self) < type(other)
         return len(self) <= len(other) and self._within(other)
 
     def __eq__(self, other):
@@ -80,7 +84,7 @@ class Set(dictionary):
 
     def __ge__(self, other):
         if not isinstance(other, Set):
-            return type(self) >= type(other)
+            return type(self) > type(other)
         return len(self) >= len(other) and other._within(self)
 
     is_subset_of        = __le__
@@ -100,7 +104,7 @@ class Set(dictionary):
 
         # Combine hash codes of set elements to produce set's hash code.
         self.hashcode = 0
-        for elt in self:
+        for elt in self.data:
             self.hashcode ^= hash(elt)
         return self.hashcode
 
@@ -115,19 +119,20 @@ class Set(dictionary):
     #----------------------------------------
     def __copy__(self):
         """Return a shallow copy of the set."""
-        return Set(self)
+        result = Set()
+        result.data = self.data.copy()
+        return result
 
     #----------------------------------------
     # Define 'copy' method as readable alias for '__copy__'.
-    # Overrides dictionary.copy()
     copy = __copy__
 
     #----------------------------------------
     def __deepcopy__(self, memo):
         result          = Set()
         memo[id(self)]  = result
-        for elt in self:
-            result[deepcopy(elt, memo)] = deepcopy(self[elt], memo)  #XXX?
+        for elt in self.data:
+            result.data[deepcopy(elt, memo)] = None
         return result
 
     #----------------------------------------
@@ -135,7 +140,7 @@ class Set(dictionary):
         """Remove all elements of unfrozen set."""
         if self.hashcode is not None:
             raise ValueError, Set._Frozen_Msg % "clearing"
-        dictionary.clear(self)
+        self.data.clear()
 
     #----------------------------------------
     def union_update(self, other):
@@ -143,7 +148,7 @@ class Set(dictionary):
         in another set."""
 
         self._binary_sanity_check(other, "updating union")
-        self.update(other)
+        self.data.update(other.data)
         return self
 
     #----------------------------------------
@@ -153,7 +158,7 @@ class Set(dictionary):
 
         self._binary_sanity_check(other)
         result = Set(self)
-        result.update(other)
+        result.data.update(other.data)
         return result
 
     #----------------------------------------
@@ -162,9 +167,9 @@ class Set(dictionary):
         elements in another set."""
 
         self._binary_sanity_check(other, "updating intersection")
-        for elt in self.keys():  #make copy since modifying below
-            if elt not in other:
-                del self[elt]
+        for elt in self.data.keys():  #make copy since modifying below
+            if elt not in other.data:
+                del self.data[elt]
         return self
 
     #----------------------------------------
@@ -173,14 +178,14 @@ class Set(dictionary):
         set's and another's."""
 
         self._binary_sanity_check(other)
-        if len(self) <= len(other):
-            little, big = self, other
+        if len(self.data) <= len(other.data):
+            little, big = self.data, other.data
         else:
-            little, big = other, self
+            little, big = other.data, self.data
         result = Set()
         for elt in little:
             if elt in big:
-                result[elt] = other[elt]
+                result.data[elt] = None
         return result
 
     #----------------------------------------
@@ -191,11 +196,11 @@ class Set(dictionary):
         in both."""
 
         self._binary_sanity_check(other, "updating symmetric difference")
-        for elt in other:
+        for elt in other.data:
             try:
-                del self[elt]
+                del self.data[elt]
             except LookupError:
-                self[elt] = other[elt]
+                self.data[elt] = None
         return self
 
     #----------------------------------------
@@ -209,9 +214,9 @@ class Set(dictionary):
         result = Set(self)
         for elt in other:
             try:
-                del result[elt]
+                del result.data[elt]
             except LookupError:
-                result[elt] = other[elt]
+                result.data[elt] = None
         return result
 
     #----------------------------------------
@@ -219,7 +224,7 @@ class Set(dictionary):
         """Remove all elements of another set from this set."""
 
         self._binary_sanity_check(other, "updating difference")
-        for elt in other:
+        for elt in other.data:
             self.discard(elt)
         return self
 
@@ -230,7 +235,7 @@ class Set(dictionary):
 
         self._binary_sanity_check(other)
         result = Set(self)
-        for elt in other:
+        for elt in other.data:
             result.discard(elt)
         return result
 
@@ -256,7 +261,7 @@ class Set(dictionary):
 
         if self.hashcode is not None:
             raise ValueError, Set._Frozen_Msg % "adding an element"
-        self[item] = None
+        self.data[item] = None
 
     #----------------------------------------
     def update(self, iterable):
@@ -265,11 +270,14 @@ class Set(dictionary):
 
         if self.hashcode is not None:
             raise ValueError, Set._Frozen_Msg % "adding an element"
-        try:
-            dictionary.update(self, iterable)
-        except AttributeError:
+        if isinstance(iterable, Set):
+            self.data.update(iterable.data)
+        elif isinstance(iterable, type(self.data)):
+            self.data.update(iterable)
+        else:
+            selfdict = self.data
             for item in iterable:
-                self[item] = None
+                selfdict[item] = None
 
     #----------------------------------------
     def remove(self, item):
@@ -278,7 +286,7 @@ class Set(dictionary):
 
         if self.hashcode is not None:
             raise ValueError, Set._Frozen_Msg % "removing an element"
-        del self[item]
+        del self.data[item]
 
     #----------------------------------------
     def discard(self, item):
@@ -288,7 +296,7 @@ class Set(dictionary):
         if self.hashcode is not None:
             raise ValueError, Set._Frozen_Msg % "removing an element"
         try:
-            del self[item]
+            del self.data[item]
         except KeyError:
             pass
 
@@ -298,12 +306,13 @@ class Set(dictionary):
 
         if self.hashcode is not None:
             raise ValueError, Set._Frozen_Msg % "removing an element"
-        return dictionary.popitem(self)[0]
+        return self.data.popitem()[0]
 
     #----------------------------------------
     def _within(self, other):
         """Return true if all elements of self are contained in other."""
-        for elt in self:
+        other = other.data
+        for elt in self.data:
             if elt not in other:
                 return 0
         return 1

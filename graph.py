@@ -3,9 +3,9 @@
 
 """Graph class."""
 
-__version__ = "$Revision: 2.6 $"
+__version__ = "$Revision: 2.7 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2002/07/10 22:47:34 $"
+__date__    = "$Date: 2002/07/11 00:13:39 $"
 
 #change a lot of these for loops to use faster map() function (see FAQ and QuickReference)
 #also: map/reduce/filter now work with any iterable object (including dictionaries!)
@@ -54,7 +54,7 @@ class Vertex(VertexBaseType):
         >>> g[5].setdefault(2)  #unless otherwise specified, will use default edge value
         1
         >>> print g             #note new vertex 2
-        {2: {}, 5: {2: 1}}
+        {2: {}, 5: {2}}
         
         This method provided for completeness and to ensure preservation of Graph
         invariants.  Vertex.add() is recommended method.
@@ -80,7 +80,7 @@ class Vertex(VertexBaseType):
         >>> g[5][7]
         24
         """
-        if type(self) is Vertex: assert edge_value==USE_DEFAULT, "Vertex type does not support edge-value assignment." #XXX better way? how about setdefault too?
+        if type(self) is Vertex and edge_value!=USE_DEFAULT: raise TypeError, "Vertex type does not support edge-value assignment." #XXX better way? how about setdefault too?
         try:  #single tail addition
             self.setdefault(tail, edge_value, collision)
         except TypeError:  #multiple tail addition
@@ -105,12 +105,12 @@ class Vertex(VertexBaseType):
         >>> g = Graph()
         >>> g.add(5, range(5))
         >>> print g[5]
-        {0: 1, 1: 1, 2: 1, 3: 1, 4: 1}
+        {0, 1, 2, 3, 4}
         >>> g[5].discard(3)     #remove single edge
         >>> g[5].discard(90)    #discard of non-existent edge ignored
         >>> g[5].discard([0, 1, 90]) #discard multiple edges
         >>> print g[5]
-        {2: 1, 4: 1}
+        {2, 4}
         """
         try: #single tail removal
             del self[tail]
@@ -131,9 +131,9 @@ class Vertex(VertexBaseType):
         >>> map(None, g[2].in_vertices())      #XXX arbitrary order
         [1, 2]
         """
-        for h in self._graph:
-            if self._id in self._graph[h]:
-                yield h
+        for head in self._graph.itervalues():
+            if self._id in head:
+                yield head._id
 
     out_vertices = VertexBaseType.iterkeys
 
@@ -156,19 +156,26 @@ class Vertex(VertexBaseType):
                 super(Vertex, self).__eq__(other)) 
                 #XXX and self.in_vertices()==other.in_vertices())
 
-    def __str__(self, format_string="%r: %r"):
-        """Return string of tail vertices in set notation."""
-        #XXX could use "%r%r\b \b" which will erase edge value (bs, write space, bs) --fails doctests
+    def __str__(self, format_string="%r"):  #could use "%r%r\b \b" but would fail doctests
+        """Return string of tail vertices in set notation.
+        >>> g = Graph()
+        >>> g.add(1, [1, 3, 4])
+        >>> print g[1]
+        {1, 3, 4}
+        """
         if _DEBUG: self.validate()
-        return super(Vertex, self).__str__(format_string)
+        if not self: return '{}'    #nothing to sort
+        keys = self.keys()
+        keys.sort()
+        return '{' + ', '.join([format_string % k for k in keys]) + '}'
 
     def copy(self):
         """Make a copy of the vertex tail set.
         >>> g = Graph()
-        >>> g.add(5, 1)
+        >>> g.add(5, 1, 7)
         >>> v = g[5].copy()
         >>> type(v), v 
-        (<class 'graph.Vertex'>, {1: 1})
+        (<class 'graph.Vertex'>, {1: 7})
         """
         return self.__class__(self._graph, self._id, self, self.default)
         #XXX shallow copy assumes edge values are simple type!
@@ -242,34 +249,35 @@ class Graph(GraphBaseType):
     #Basic data structure {vertex id: {t1: edge; t2: edge}}
     #Add label to __init__ to attach description to graph?
     #Disable __setitem__()?
+    #Perhaps make default vertex type WVertex and change doctests accordingly.
 
     __slots__ = ['VertexType']
 
     def __init__(self, initgraph=None, VertexType=Vertex):
         """Create the graph, optionally initializing from another graph.
         Optional VertexType parameter can be passed to specify default vertex type.
-        >>> g = Graph()
+        >>> g = Graph(VertexType=WVertex)
         >>> len(g), g
         (0, {})
-        >>> g.add([1, 2, 3], [2, 3])
-        >>> g2 = Graph(g)       #can initialize with other Graph type
+        >>> g.add([1, 2, 3], [2, 3], 5)
+        >>> print g
+        {1: {2: 5, 3: 5}, 2: {2: 5, 3: 5}, 3: {2: 5, 3: 5}}
+        >>> g2 = Graph(g, Vertex)       #can initialize with other Graph type, will convert to Vertex type
         >>> print g2
-        {1: {2: 1, 3: 1}, 2: {2: 1, 3: 1}, 3: {2: 1, 3: 1}}
+        {1: {2, 3}, 2: {2, 3}, 3: {2, 3}}
         """
-        if isinstance(initgraph, Graph):
-            super(Graph, self).__init__(initgraph) #XXX shared Vertex objects
-            self.VertexType = initgraph.VertexType
-        elif initgraph:
-            raise TypeError, "can only initialize Graph with Graph object"
-        else:
-            super(Graph, self).__init__()
-            self.VertexType = VertexType
+        self.VertexType = VertexType
+        super(Graph, self).__init__()
+        if initgraph:
+            if not isinstance(initgraph, Graph):
+                raise TypeError, "can only initialize Graph with Graph object"
+            self.update(initgraph)  #will copy vertices to VertexType
 
     def add(self, head, tail=[], edge_value=EDGEVALUE, edge_collision=OVERWRITE):
         """Add the vertices and/or edges.
         Parameters can be single vertex or list of vertices.
         If no second parameter given, assume vertex addition only.
-        >>> g = Graph()
+        >>> g = Graph(VertexType=WVertex)
         >>> g.add(1)            #single vertex addition
         >>> g.add(1)            #adding existing vertex is ignored
         >>> g.add([2, 3, 4])    #multiple vertex addition
@@ -321,14 +329,14 @@ class Graph(GraphBaseType):
         >>> g.discard([1])              #list with single vertex is fine
         >>> g.discard([1, 3])           #discards vertices in list
         >>> print g
-        {0: {0: 1, 2: 1}, 2: {0: 1, 2: 1}}
+        {0: {0, 2}, 2: {0, 2}}
 
         If tail is non-empty, then only edge deletions are made.
         >>> g.discard(0, 2)             #discard edge
         >>> g.discard(5, 0)             #non-existent edge ignored
         >>> g.discard(2, [1, 0, 2, 2])  #will discard two actual edges
         >>> print g
-        {0: {0: 1}, 2: {}}
+        {0: {0}, 2: {}}
         """
         if tail==[]:    #vertex deletions
             try:
@@ -372,7 +380,7 @@ class Graph(GraphBaseType):
         return (v, tails)
 
     def update(self, other, default=None, collision=MERGE_VERTEX):
-        """Merges one graph with another.  Takes union of edge lists.
+        """Merges one graph with another.  All vertices will be convertex to VertexType.  Takes union of edge lists.
         >>> g1, g2 = Graph(VertexType=WVertex), Graph()
         >>> g1.add(1, [1, 2])
         >>> g2.add(3, [2, 3]); g2.add(1, 2, 3); g2.add(1, 4, 2)
@@ -395,7 +403,7 @@ class Graph(GraphBaseType):
         >>> g.add([1, 2], [1, 2, 3])
         >>> del g[2]    #will remove vertex 2 and edges [(1, 2), (2, 1), (2, 2), (2, 3)]
         >>> print g
-        {1: {1: 1, 3: 1}, 3: {}}
+        {1: {1, 3}, 3: {}}
         
         Raises LookupError if given non-existant vertex.
         >>> del g[2]
@@ -409,6 +417,16 @@ class Graph(GraphBaseType):
         super(Graph, self).__delitem__(head)
 
     def __str__(self, format_string="%r: %s"):
+        """Return graph in adjacency format.
+        >>> g = Graph()
+        >>> g.add(range(3), range(3))
+        >>> str(g)
+        '{0: {0, 1, 2}, 1: {0, 1, 2}, 2: {0, 1, 2}}'
+        >>> g = Graph(VertexType=WVertex)
+        >>> g.add(range(3), range(3))
+        >>> str(g)
+        '{0: {0: 1, 1: 1, 2: 1}, 1: {0: 1, 1: 1, 2: 1}, 2: {0: 1, 1: 1, 2: 1}}'
+        """
         if _DEBUG: self.validate()
         return super(Graph, self).__str__(format_string)
         #return '{' + ', '.join(map(str, self.itervalues())) + '}'

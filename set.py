@@ -8,9 +8,9 @@ or as an element in another set), that set 'freezes', and becomes
 immutable.  See PEP-0218 for a full discussion.
 """
 
-__version__ = "$Revision: 1.10 $"
+__version__ = "$Revision: 1.11 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2001/10/07 18:37:33 $"
+__date__    = "$Date: 2002/07/08 04:25:04 $"
 
 from copy import deepcopy
 
@@ -126,7 +126,7 @@ class Set:
     #----------------------------------------
     def __copy__(self):
         """Return a shallow copy of the set."""
-        result = Set()
+        result = self.__class__()
         result.data = self.data.copy()
         return result
 
@@ -136,7 +136,7 @@ class Set:
 
     #----------------------------------------
     def __deepcopy__(self, memo):
-        result          = Set()
+        result          = self.__class__()
         memo[id(self)]  = result
         for elt in self.data:
             result.data[deepcopy(elt, memo)] = None
@@ -164,7 +164,7 @@ class Set:
         and another's."""
 
         self._binary_sanity_check(other)
-        result = Set(self)
+        result = self.__class__(self)
         result.data.update(other.data)
         return result
 
@@ -189,7 +189,7 @@ class Set:
             little, big = self.data, other.data
         else:
             little, big = other.data, self.data
-        result = Set()
+        result = self.__class__()
         for elt in little:
             if elt in big:
                 result.data[elt] = None
@@ -218,7 +218,7 @@ class Set:
         set, but not in both."""
 
         self._binary_sanity_check(other)
-        result = Set(self)
+        result = self.__class__(self)
         for elt in other:
             try:
                 del result.data[elt]
@@ -241,7 +241,7 @@ class Set:
         present in another set."""
 
         self._binary_sanity_check(other)
-        result = Set(self)
+        result = self.__class__(self)
         for elt in other.data:
             result.discard(elt)
         return result

@@ -3,9 +3,9 @@
 
 """Bag types"""
 
-__version__ = "$Revision: 2.11 $"
+__version__ = "$Revision: 2.12 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2003/06/23 02:07:05 $"
+__date__    = "$Date: 2003/07/04 00:53:05 $"
 
 #bag should have list interface? --should add list methods: append, remove, min/max,  __str__ return list string, etc.
 #   in addition to min/max(), perhaps create most/least() to return the item with the highest/lowest count
@@ -37,7 +37,7 @@ class IntegerBag(dict):
     def __init__(self, init={}):
         """Initialize bag with optional contents.
 
-        >>> b = NaturalBag()   #creates empty bag
+        >>> b = Bag()   #creates empty bag
         >>> b
         {}
         >>> print IntegerBag({1: -1, 2: 0, 3: -9})
@@ -45,7 +45,7 @@ class IntegerBag(dict):
 
         Can initialize with (key, count) list as in standard dict.
         However, duplicate keys will accumulate counts:
-        >>> print NaturalBag([(1, 2), (2, 4), (1, 7)])
+        >>> print Bag([(1, 2), (2, 4), (1, 7)])
         {1: 9, 2: 4}
         """
         if not init or isinstance(init, self.__class__):
@@ -62,17 +62,17 @@ class IntegerBag(dict):
     def fromkeys(cls, iterable, count=1):
         """Class method which creates bag from iterable adding optional count for each item.
 
-        >>> b = NaturalBag({'b': 2, 'c': 1, 'a': 3})
-        >>> b2 = NaturalBag.fromkeys(['a', 'b', 'c', 'b', 'a', 'a'])
-        >>> b3 = NaturalBag.fromkeys("abacab")
+        >>> b = Bag({'b': 2, 'c': 1, 'a': 3})
+        >>> b2 = Bag.fromkeys(['a', 'b', 'c', 'b', 'a', 'a'])
+        >>> b3 = Bag.fromkeys("abacab")
         >>> assert b == b2 == b3
 
-        >>> word_count = NaturalBag.fromkeys("how much wood could a wood chuck chuck".split())
+        >>> word_count = Bag.fromkeys("how much wood could a wood chuck chuck".split())
         >>> print word_count
         {'a': 1, 'chuck': 2, 'could': 1, 'how': 1, 'much': 1, 'wood': 2}
 
         An optional count can be specified.  Count added each time item is encountered.
-        >>> print NaturalBag.fromkeys("abacab", 5)
+        >>> print Bag.fromkeys("abacab", 5)
         {'a': 15, 'b': 10, 'c': 5}
         """
         b = cls()
@@ -107,9 +107,9 @@ class IntegerBag(dict):
         >>> print ib
         {'a': 3, 'b': 2, 'c': 1, 'd': 5}
 
-        Updating NaturalBag with values that would cause the count to go negative
+        Updating Bag with values that would cause the count to go negative
         sets count to 0, removing item.
-        >>> b = NaturalBag({'a': 1, 'c': 2, 'd': 5})
+        >>> b = Bag({'a': 1, 'c': 2, 'd': 5})
         >>> b.update({'a': -4, 'b': -1, 'c': -2, 'd': -2})
         >>> print b
         {'d': 3}
@@ -132,7 +132,7 @@ class IntegerBag(dict):
                 except TypeError, error: pass
         if error: raise TypeError, error
 
-    def pick(self, count=1, remove=True):
+    def pick(self, count=1, remove=True): #XXX perhaps better to default to False?
         """Returns a bag with 'count' random items from bag (defaults to 1), removing the items unless told otherwise.
 
         >>> b = IntegerBag({'a': 3, 'b': -2, 'c': 1})
@@ -142,14 +142,14 @@ class IntegerBag(dict):
         """
         l = list(self.itereach())
         picked = IntegerBag(random.sample(l, min(abs(count), len(l))))
-        if count < 0:  picked *= (-1)  #this probably not useful
+        if count < 0:  picked *= (-1)  #this probably not useful except for Network class
         if remove: self -= picked
         return picked
 
     def discard(self, item):
         """Removes all of the specified item if it exists, otherwise ignored.
 
-        >>> b = NaturalBag.fromkeys("abacab")
+        >>> b = Bag.fromkeys("abacab")
         >>> b.discard('b')
         >>> b.discard('d')  #non-existent items ignored
         >>> print b
@@ -165,7 +165,7 @@ class IntegerBag(dict):
     def itereach(self):
         """Will iterate through all items in bag individually.
 
-        >>> b = NaturalBag.fromkeys("abacab")
+        >>> b = Bag.fromkeys("abacab")
         >>> l = list(b.itereach()); l.sort()
         >>> l
         [('a', 1), ('a', 1), ('a', 1), ('b', 1), ('b', 1), ('c', 1)]
@@ -187,7 +187,7 @@ class IntegerBag(dict):
     def __iadd__(self, other):
         """Add items in bag.
 
-        >>> b = NaturalBag()
+        >>> b = Bag()
         >>> b += [1, 2, 1, 0]
         >>> print b
         {0: 1, 1: 2, 2: 1}
@@ -199,10 +199,10 @@ class IntegerBag(dict):
         self.update(other, 1)  #XXX may fail mid-update...
         return self
 
-    def __add__(self, other):
+    def __add__(self, other):  #XXX better way to create copy?? (in case self.__class__ has more complicated constructor...)
         """Add one bag to another, returns type of first bag.
 
-        >>> b = IntegerBag({1: 2, 2: -2}) + NaturalBag({1: 5, 2: 1, 3: 7})
+        >>> b = IntegerBag({1: 2, 2: -2}) + Bag({1: 5, 2: 1, 3: 7})
         >>> b, type(b)
         ({1: 7, 2: -1, 3: 7}, <class 'bag.IntegerBag'>)
         """
@@ -211,7 +211,7 @@ class IntegerBag(dict):
     def __isub__(self, other):
         """Subtract items from bag.
 
-        >>> b = NaturalBag.fromkeys("abacab")
+        >>> b = Bag.fromkeys("abacab")
         >>> b -= "cccccab"
         >>> print b
         {'a': 2, 'b': 1}
@@ -232,7 +232,7 @@ class IntegerBag(dict):
     def __imul__(self, factor):
         """Multiply bag contents by factor.
 
-        >>> b = NaturalBag.fromkeys("abacab")
+        >>> b = Bag.fromkeys("abacab")
         >>> b *= 4
         >>> print b
         {'a': 12, 'b': 8, 'c': 4}
@@ -243,7 +243,7 @@ class IntegerBag(dict):
         >>> print ib
         {'a': -12, 'b': -8, 'c': -4}
 
-        Trying that on a NaturalBag will return empty bag (akin to list behavior).
+        Trying that on a Bag will return empty bag (akin to list behavior).
         >>> b *= -1
         >>> b
         {}
@@ -258,7 +258,7 @@ class IntegerBag(dict):
         if self._filter(factor):
             for item, count in self.iteritems():
                 dict.__setitem__(self, item, count*factor) #bypass test logic in bag.__setitem__
-        else:   #factor==0 or negative on NaturalBag
+        else:   #factor==0 or negative on Bag
             dict.clear(self)    #call dict.clear to protect subclass which might override and do other things besides clear dict values
         return self
 
@@ -268,7 +268,7 @@ class IntegerBag(dict):
         >>> d = {1: 2, 2: 4, 3: -9}
         >>> IntegerBag(d) * -1
         {1: -2, 2: -4, 3: 9}
-        >>> NaturalBag(d) * -1
+        >>> Bag(d) * -1
         {}
         """
         #XXX should perhaps use explicit IntBag in case derived class needs parameters -- or use copy()???
@@ -289,7 +289,7 @@ class IntegerBag(dict):
     def __getitem__(self, item):
         """Returns total count for given item, or zero if item not in bag.
 
-        >>> b = NaturalBag.fromkeys("abacab")
+        >>> b = Bag.fromkeys("abacab")
         >>> b['a']
         3
         >>> b['d']
@@ -302,7 +302,7 @@ class IntegerBag(dict):
     def __setitem__(self, item, count):
         """Sets the count for the given item in bag, removing if zero.
 
-        >>> b = NaturalBag()
+        >>> b = Bag()
         >>> b[1] = 3
         >>> b[2] = 2L   #long values okay
         >>> b[3] = 1.6  #floats get coerced to ints
@@ -324,7 +324,7 @@ class IntegerBag(dict):
         >>> print ib
         {1: -1, 4: -2, 5: -2}
 
-        Trying to set negative values on NaturalBag reverts to zero.
+        Trying to set negative values on Bag reverts to zero.
         >>> b[4] = -2
         >>> b[4]
         0
@@ -347,7 +347,7 @@ class IntegerBag(dict):
         '{}'
         >>> str(IntegerBag({'b': -2, 'a': 3, 'c': 1, 1: 0}))
         "{'a': 3, 'b': -2, 'c': 1}"
-        >>> str(NaturalBag.fromkeys("abacab"))
+        >>> str(Bag.fromkeys("abacab"))
         "{'a': 3, 'b': 2, 'c': 1}"
         """
         #sort by values, largest first? should we sort at all?
@@ -371,14 +371,14 @@ class IntegerBag(dict):
         >>> b._validate()
         Traceback (most recent call last):
         ValueError: invalid literal for int(): oops
-        >>> b = NaturalBag()
+        >>> b = Bag()
         >>> dict.__setitem__(b, 'a', 0)    #zero values are normally deleted
         >>> b
         {'a': 0}
         >>> b._validate()
         Traceback (most recent call last):
         AssertionError: zero value encountered
-        >>> b = NaturalBag()
+        >>> b = Bag()
         >>> dict.__setitem__(b, 'a', -1)   #negative values not allowed
         >>> b._validate()
         Traceback (most recent call last):
@@ -389,7 +389,7 @@ class IntegerBag(dict):
             assert count, "zero value encountered"
 
 
-class NaturalBag(IntegerBag):
+class Bag(IntegerBag):
     """Standard bag class.  Allows only non-negative bag counts."""
 
     __slots__ = []
@@ -397,7 +397,7 @@ class NaturalBag(IntegerBag):
     def _size(self):
         """Returns total number of items in bag.
 
-        >>> b = NaturalBag.fromkeys("abacab")
+        >>> b = Bag.fromkeys("abacab")
         >>> b.size
         6
         """
@@ -416,16 +416,16 @@ def _test():
     """Miscillaneous tests:
 
     Equality test.  Can compare against dictionary or bag types.
-    >>> NaturalBag.fromkeys("abacab") == {'a': 3, 'b': 2, 'c': 1}
+    >>> Bag.fromkeys("abacab") == {'a': 3, 'b': 2, 'c': 1}
     True
-    >>> b, l = NaturalBag.fromkeys([1, 2, 1, 3, 1]), [1, 1, 1, 3, 2]
+    >>> b, l = Bag.fromkeys([1, 2, 1, 3, 1]), [1, 1, 1, 3, 2]
     >>> b == l
     False
-    >>> b == NaturalBag.fromkeys(l) == IntegerBag.fromkeys(l)
+    >>> b == Bag.fromkeys(l) == IntegerBag.fromkeys(l)
     True
 
     Tests for non-zero:
-    >>> b = NaturalBag()
+    >>> b = Bag()
     >>> bool(b)
     False
     >>> b += [0]

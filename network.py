@@ -3,9 +3,9 @@
 
 """Network class for flow networks."""
 
-__version__ = "$Revision: 2.12 $"
+__version__ = "$Revision: 2.13 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2003/06/18 22:41:32 $"
+__date__    = "$Date: 2003/06/20 21:41:09 $"
 
 #Add Network.time to track how many ticks
 #Have Network.add(v), add +1 to v.energy, may need to split function for
@@ -24,7 +24,99 @@ DEFAULT_FLOW = 1
 NodeBaseType = IntegerBag
 FlowType = IntegerBag
 
-class Node(WeightedEdgeMixin, NodeBaseType): #order needed for Vertex.discard to override bag.discard
+class ReverseEdgeMixin(dict):
+    """Mixin to allow O(1) access to in vertices.  Inherit instead of or before VertexMixin."""
+    #XXX need doctests, also investigate slots issue (multiple bases have instance layout conflict)
+
+    __slots__ = ['reverse']
+
+    def __init__(self, *args): #???
+        self.reverse = NodeBaseType() #???
+        super(ReverseEdgeMixin, self).__init__(*args)
+
+    def in_vertices(self):
+        """Return iterator over the vertices that point to self.
+
+        >>> n = Network()
+        >>> n.add(1, [2, 3, 4])
+        >>> n.add(2, [3, 2])
+        >>> list(n[2].in_vertices())      #XXX arbitrary order
+        [1, 2]
+        """
+        return self.reverse.iterkeys()
+
+    def in_degree(self):
+        """Return number of edges pointing into vertex.
+
+        >>> n = Network()
+        >>> n.add(1, [2, 3, 4])
+        >>> n.add(2, [3, 2])
+        >>> n[1].in_degree(), n[2].in_degree(), n[4].in_degree()
+        (0, 2, 1)
+        """
+        return len(self.reverse)
+
+    def sum_in(self):
+        """Return sum of all edges that point to vertex.
+
+        >>> n = Network()
+        >>> n.add(1, [1, 2, 3])
+        >>> n.add(4, 1, 3)
+        >>> n[1].sum_in(), n[3].sum_in(), n[4].sum_in()
+        (4, 1, 0)
+        """
+        return sum(self.reverse.itervalues())
+
+    def __setitem__(self, tail, value):
+        """Set edge capacity.  Will also update other vertex.reverse.
+
+        >>> n = Network()
+        >>> n[1][2] = 3
+        >>> n[1], n[2].reverse
+        ({2: 3}, {1: 3})
+        """
+        if value:
+            if tail != self._id:
+                self._graph[tail].reverse[self._id] = value #creates tail vertex so check value first
+            else:
+                self.reverse[self._id] = value
+        super(ReverseEdgeMixin, self).__setitem__(tail, value)
+
+    def __delitem__(self, tail):
+        """Removes tail from self and self._id from tail.reverse.
+
+        >>> n = Network()
+        >>> n[1][2] = 3
+        >>> n[2].reverse
+        {1: 3}
+        >>> del n[1][2]
+        >>> n[2].reverse
+        {}
+        """
+        if tail in self._graph:
+            del self._graph[tail].reverse[self._id]  #creates tail vertex so check if tail in graph first
+        super(ReverseEdgeMixin, self).__delitem__(tail)
+
+    def clear(self):
+        """Removes all tails from self and all references to self._id in tail.reverse
+
+        >>> n = Network({1: {1: 1, 2: 4, 3: 9}, 2: {3: 8}})
+        >>> n[1].clear()
+        >>> n[1].reverse, n[2].reverse, n[3].reverse
+        ({}, {}, {2: 8})
+        """
+        g, vid = self._graph, self._id
+        for tail in self.iterkeys(): #XXX 'tail in self' iterates like bag!!
+            del g[tail].reverse[vid]
+        super(ReverseEdgeMixin, self).clear()
+
+    def _validate(self):
+        super(ReverseEdgeMixin, self)._validate()
+        for head, weight in self.reverse.iteritems():
+            assert self._graph[head][self._id] == weight
+
+
+class Node(ReverseEdgeMixin, WeightedEdgeMixin, NodeBaseType): #order needed for Vertex.discard to override bag.discard
     """Node in a flow network."""
 
     __slots__ = ['flow_out', 'last_tick', '_graph', '_id'] #XXX have to define _graph and _id since aren't inheriting from Vertex!
@@ -103,12 +195,11 @@ class Node(WeightedEdgeMixin, NodeBaseType): #order needed for Vertex.discard to
         self.last_tick = tick   #XXX would like to set last_tick and clear flow only if paths!=[]
         self.flow_out.clear()       #clear old flow values
         g = self._graph
+        #XXX but in python v2.3b1 -- bit, paths = (bits >= 0) and (1, list(self) or (-1, list(reverse)) #forward/backward flow respectively #XXX semantics of bag.iter may change!
         if bits >= 0:   #forward flow
-            bit = 1
-            paths = list(self) #XXX semantics of bag.__iter__ may change
+            bit, paths = 1, list(self) #XXX semantics of bag.__iter__ may change
         else:           #backward flow
-            bit = -1
-            paths = reduce(operator.add, [[head]*abs(g[head][self._id]) for head in self.in_vertices()], [])
+            bit, paths = -1, list(self.reverse)
         while bits and paths:   #this could be faster by checking for path saturation (see rev2.8)
             path = paths.pop(int(random.random()*len(paths)))
             #change sign of bit transferred if path has negative capacity
@@ -177,7 +268,7 @@ class Node(WeightedEdgeMixin, NodeBaseType): #order needed for Vertex.discard to
         AssertionError: flow encountered on non-existent edge
         """
         for dest in self.flow_out:
-            assert dest in self or dest in self.in_vertices(), "flow encountered on non-existent edge"
+            assert dest in self or dest in self.reverse, "flow encountered on non-existent edge"
         super(Node, self)._validate()
         super(WeightedEdgeMixin, self)._validate() #FIXME
 
@@ -219,8 +310,8 @@ class Source(Node):
             if bits >= 0:
                 self.flow_out += self #flow will be equal to out vertices' capacity
                 return self.sum_out()
-            else: #XXX find better way to do this -- should WVertex have a method for this?
-                self.flow_out -= FlowType([(head, self._graph[head][self._id]) for head in self.in_vertices()])
+            else:
+                self.flow_out -= self.reverse #flow equal to in vertices' capacity
                 return -self.sum_in()
         return 0
 
@@ -295,7 +386,7 @@ class FileSource(Source): #cannot multiple inherit from file also
     def _validate(self):
         assert self._id == self.source.name, "Mismatched id: %s != %s" % (self._id, self.source.name)
         assert len(self.flow_in()) == 0, "Unexpected flow_in: %s" % self.flow_in()
-        assert self.in_degree() == 0, "Unexpected in_vertices: %s" % list(self.in_vertices())
+        assert self.in_degree() == 0, "Unexpected in_vertices: %s" % self.reverse
         super(FileSource, self)._validate()
 
 
@@ -544,6 +635,14 @@ def _test():
 
     >>> n = Network({1: {}, 2: {}, 3: {}})
     >>> n.discard([2, 3])
+
+    Test that arbitrary attributes can't be assigned.
+    >>> n[1].test = "BAD"
+    Traceback (most recent call last):
+    AttributeError: 'Node' object has no attribute 'test'
+    >>> n.test = "BAD"
+    Traceback (most recent call last):
+    AttributeError: 'Network' object has no attribute 'test'
     """
 
     import doctest, network

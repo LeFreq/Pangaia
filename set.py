@@ -8,9 +8,9 @@ in another set), that set 'freezes', and becomes immutable.  See
 PEP-0218 for a full discussion.
 """
 
-__version__ = "$Revision: 1.2 $"
+__version__ = "$Revision: 1.3 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2001/09/26 02:07:39 $"
+__date__    = "$Date: 2001/09/26 03:30:17 $"
 
 from copy import deepcopy
 
@@ -21,7 +21,6 @@ class Set(dictionary):
 
     #----------------------------------------
     def __init__(self, iterable=None):
-
         """Construct a set, optionally initializing it with elements
         drawn from an interable object.  The 'hashcode' element is
         given a non-None value the first time the set's hashcode is
@@ -72,7 +71,6 @@ class Set(dictionary):
 
     #----------------------------------------
     def __hash__(self):
-
         """Calculate hash code for set by xor'ing hash codes of set
         elements.  This algorithm ensures that the hash code does not
         depend on the order in which elements are added to the
@@ -91,7 +89,6 @@ class Set(dictionary):
 
     #----------------------------------------
     def is_frozen(self):
-
         """Report whether set is frozen or not.  A frozen set is one
         whose hash code has already been calculated.  Frozen sets may
         not be mutated, but unfrozen sets can be."""

@@ -3,9 +3,9 @@
 
 """Network class for flow networks."""
 
-__version__ = "$Revision: 2.9 $"
+__version__ = "$Revision: 2.10 $"
 __author__  = "$Author: average $"
-__date__    = "$Date: 2003/06/10 01:36:06 $"
+__date__    = "$Date: 2003/06/17 07:19:41 $"
 
 #Add Network.time to track how many ticks
 #Have Network.add(v), add +1 to v.energy, may need to split function for
@@ -17,20 +17,21 @@ import random, operator
 from graph import *
 from bag import *
 
+_DEBUG = True
 DEFAULT_CAPACITY = 1
 
-class Node(imbag, VMixin):
+class Node(IntegerBag, WeightedEdgeMixin):
     """Node in a flow network."""
 
-    __slots__ = ['flow', 'last_tick', '_graph', '_id']
+    __slots__ = ['flow', 'last_tick']
 
-    def __init__(self, network, id, init={}):
+    def __init__(self, network, id, init={}):  #XXX parent class should do most of this
         self._graph = network
         self._id = id
-        self.flow = imbag()
-        super(Node, self).__init__(init)  #parent class should call Node.__setitem__ if given non-Node.
+        self.flow = IntegerBag()
+        super(Node, self).__init__(init)  #parent class should call Node.__setitem__ to add Nodes to Network if necessary.
 
-    def add(self, sink, capacity=DEFAULT_CAPACITY):
+    def add(self, sink, capacity=DEFAULT_CAPACITY): #should be able to use Vertex.add()??
         """Add connection to sink with given capacity (defaults to 1).
         >>> n = Network()
         >>> n[1].add([2, 3], 5)
@@ -47,36 +48,15 @@ class Node(imbag, VMixin):
             self[sink] += capacity
         except TypeError:  #list of sinks given
             if not isinstance(sink, list): raise TypeError("argument must be hashable type or a list object.")
-            for s in sink:
+            for s in sink: #XXX should be able to use new bag.update_fromkeys()
                 self[s] += capacity
 
-    def in_vertices(self):  #O(n)
-        """Return iterator over the nodes that point to self.
-        >>> n = Network()
-        >>> n.add(1, [2, 3, 4])
-        >>> n.add(2, [3, 2])
-        >>> list(n[2].in_vertices())       #XXX arbitrary order
-        [1, 2]
-        """
-        for head in self._graph.itervalues():
-            if self._id in head:
-                yield head._id
+    def discard(self, sink):
+        """Removes sink from vertex, if exists, and flow value."""
+        self.flow.discard(sink)
+        super(Node, self).discard(sink)
 
-    out_vertices = bag.iterkeys
-
-    def in_degree(self):
-        """Return number of edges pointing into vertex.
-        >>> n = Network()
-        >>> n.add(1, [2, 3, 4])
-        >>> n.add(2, [3, 2])
-        >>> n[1].in_degree(), n[2].in_degree(), n[4].in_degree()
-        (0, 2, 1)
-        """
-        return len(list(self.in_vertices()))
-
-    out_degree = dict.__len__
-
-    def __setitem__(self, sink, capacity):
+    def __setitem__(self, sink, capacity):  #XXX should be able to use Vertex.__setitem__()
         """Set arc capacity.  If sink does not exist and capacity>0, 
         sink is created and added to network.
         >>> n = Network()
@@ -133,14 +113,9 @@ class Node(imbag, VMixin):
             g = self._graph     #this optimization needed in a list comprehension?
             return reduce(operator.add, [[head]*abs(g[head][self._id]) for head in self.in_vertices()], [])
 
-    def _energy_out(self):
-        return sum(self.flow.itervalues())
-
-    def _energy_read(self):
-        return self._graph.energy[self._id]
-
-    def _energy_write(self, value):
-        self._graph.energy[self._id] = value
+    def _energy_out(self):  return sum(self.flow.itervalues())
+    def _energy_read(self): return self._graph.energy[self._id]
+    def _energy_write(self, value):  self._graph.energy[self._id] = value
 
     energy_out = property(_energy_out, None, None, "Energy out of node.")
     energy = property(_energy_read, _energy_write, None, "Energy at node. Slow -- use network.energy[id]")
@@ -161,53 +136,52 @@ class Node(imbag, VMixin):
         return "%r %s" % (self.energy, super(Node,self).__str__())
 
     def _validate(self):
-        """Assert Node invariants."""
+        """Call all base class validation methods.
+
+        >>> n = Network()
+        >>> n.add(1, 2, 3)
+        >>> n[1]._id = 2  #vertex 1 given id of 2
+        >>> n[1]._validate()
+        Traceback (most recent call last):
+        AssertionError: _graph[_id] is not self
+        >>> n[1]._id = 1
+        >>> n[1].flow[3] = 7  #n[1][3] non-existent
+        >>> n[1]._validate()
+        Traceback (most recent call last):
+        AssertionError: flow encountered on non-existent edge
+        """
+        for dest in self.flow:
+            assert dest in self or dest in self.in_vertices(), "flow encountered on non-existent edge"
         super(Node, self)._validate()
-        hash(self._id) #id should be hashable
-        assert isinstance(self._graph, Network)
-        assert self._id in self._graph
-        for sink in self:
-            assert sink in self._graph, "Non-existant tail %r in node %r" % (sink, self._id)
-
-
-def MERGE_NODE(net, node, sinks): 
-    net[node].update(sinks)
-    try: net[node].energy += sinks.energy
-    except AttributeError: pass
+        super(WeightedEdgeMixin, self)._validate() #FIXME
 
 
 class Network(Graph):
     """Flow network class."""
+    #XXX need way to synchronize changes to Network.energy with graph; i.e. n.energy[non-existent-node] += x.
+    #perhaps have Network derive from bag and have the graph be an attribute of the network; i.e. n.graph[1][2]==capacity, n[1][2]==flow
 
     __slots__ = ['energy', 'io', 'ticks']
 
     def __init__(self, init={}, VertexType=Node):
-        if not issubclass(VertexType, Node): raise TypeError("Invalid vertex type")
-        if isinstance(init, Network): self.energy = imbag(init.energy)
-        else: self.energy = imbag()   #stores energy values at each node
-        self.io = imbag()       #energy entering and leaving the network
-        self.ticks = 0          #number of network clock ticks since creation
-        super(Network, self).__init__(init, VertexType)
+        """Create the network, optionally initializing from other graph type.
 
-    def add(self, source, sink=[], capacity=DEFAULT_CAPACITY):
-        """Like Graph.add, but will accumulate edge values, instead of
-        overwriting them.  See Graph.add.__doc__.
-        >>> n = Network()
-        >>> n.add(1, [2, 3], 2)
-        >>> n.add(1, 2)
-        >>> n.add(4, 1)
+        >>> n = Network({1: {2: 1, 3: 2}})
+        >>> n.energy[1] += 2
         >>> print n
-        {1: 0 {2: 3, 3: 2}, 2: 0 {}, 3: 0 {}, 4: 0 {1: 1}}
+        {1: 2 {2: 1, 3: 2}, 2: 0 {}, 3: 0 {}}
+        >>> n2 = Network(n)
+        >>> n.energy[2] += 4   #should not affect n2
+        >>> print n2
+        {1: 2 {2: 1, 3: 2}, 2: 0 {}, 3: 0 {}}
         """
-        if not isinstance(sink, list): sink = [sink]
-        try:  #single node addition
-            self[source].add(sink, capacity) # += (sink * capacity)   #XXX inefficient if capacity large
-        except TypeError:  #multiple node addition
-            if not isinstance(source, list): raise TypeError("source must be hashable object or list type")
-            for s in source:  #XXX will add same tails multiple times
-                self[s].add(sink, capacity) # += (sink*capacity)
+        if not issubclass(VertexType, Node): raise TypeError("Invalid node type")
+        self.energy = IntegerBag()   #stores energy values at each node
+        self.io = IntegerBag()   #energy entering and leaving the network
+        self.ticks = 0           #number of network clock ticks since creation
+        super(Network, self).__init__(init, VertexType) #will call update()
 
-    def update(self, other, default=None, collision=MERGE_NODE):
+    def update(self, other, default=USE_DEFAULT, collision=MERGE_VERTEX):
         """Merges one graph with another.  All vertices will be convertex to VertexType.  Takes union of edge
         >>> n, g = Network(), Graph(VertexType=WVertex)
         >>> n.add(1, [1, 2])
@@ -227,14 +201,9 @@ class Network(Graph):
         {1: 7 {1: 1, 2: 7, 4: 4}, 2: 0 {}, 3: 1 {2: 2, 3: 2, 5: 1}, 4: 0 {}, 5: 0 {}}
         """
         #XXX if other has invalid (non-Integer) values then exception raised midway through!
-        assert isinstance(other, Graph), "Can only merge Graph types."
-        for nid, node in other.iteritems():
-            if nid in self:  #do union of edge sets
-                collision(self, nid, node)
-            else:   #otherwise need to copy the set
-                self[nid] = self.VertexType(self, nid, node)
-                try:  self.energy[nid] += node.energy
-                except AttributeError: pass
+        super(Network, self).update(other, default, collision)
+        if isinstance(other, Network): #what about other.io?
+            self.energy += other.energy
 
     def __call__(self, ticks=1):
         """Advance network for specified ticks, defaults to 1.
@@ -284,9 +253,7 @@ class Network(Graph):
         >>> n.total_energy
         3
         """
-        return sum(self.energy.itervalues())
-
-    total_energy = property(node_energy, None, None, "Total energy in network.")
+        return sum(self.energy.itervalues()) #bag should have method for this already
 
     def _flow(self):
         """Returns total amount of energy moved in last tick.
@@ -306,7 +273,21 @@ class Network(Graph):
             sum += n.energy_out
         return sum
 
+    total_energy = property(node_energy, None, None, "Total energy in network.")
     flow = property(_flow, None, None, "Total energy moved on last tick.")
+
+    def __delitem__(self, key):
+        """Remove node and associated energy from network.
+
+        >>> n = Network()
+        >>> n.add([1,2],[2,3])
+        >>> n.energy += [1, 2, 2]
+        >>> del n[2]
+        >>> n._validate()
+        """
+        #XXX haven't checked if everything done here...
+        del self.energy[key]
+        super(Network, self).__delitem__(key)
 
     def clear(self):
         super(Network, self).clear()
@@ -314,8 +295,21 @@ class Network(Graph):
         self.ticks = 0
 
     def _validate(self):
+        """Assert Network invariants.
+
+        >>> n = Network()
+        >>> n.add([1, 2, 3])
+        >>> n.energy[2] += 5
+        >>> dict.__delitem__(n, 2)
+        >>> print n
+        Traceback (most recent call last):
+        AssertionError: Energy exists on non-existant node
+        """
         super(Network, self)._validate()
         self.energy._validate()
+        assert self.ticks >= 0, "Invalid tick value"
+        for vid in self.energy:
+            assert vid in self, "Energy exists on non-existant node"
 
 
 def _test():
@@ -334,6 +328,12 @@ def _test():
     0 {1: 6, 2: 4, 3: 1, 4: 2, 5: 3}
     >>> assert 1 in n and 2 in n and 3 in n and 4 in n and 5 in n
 
+    >>> n = Network()
+    >>> n.add(1, [2, 3], 2)
+    >>> n.add(1, 2)
+    >>> n.add(4, 1)
+    >>> print n
+    {1: 0 {2: 3, 3: 2}, 2: 0 {}, 3: 0 {}, 4: 0 {1: 1}}
     """
 
     import doctest, network

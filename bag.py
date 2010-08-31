@@ -343,8 +343,8 @@ class IntegerBag(dict):
         >>> b[4]
         0
 
-        If count is non-integer, TypeError is raised.
-        >>> b[1] = "oops"
+        If count is non-integer, an exception is raised.
+        >>> b[1] = "oops"  #doctest: +IGNORE_EXCEPTION_DETAIL
         Traceback (most recent call last):
         ValueError: invalid literal for int(): oops
         """
@@ -382,7 +382,7 @@ class IntegerBag(dict):
 
         >>> b = IntegerBag.fromkeys("abc")
         >>> dict.__setitem__(b, 'a', "oops")
-        >>> b._validate()
+        >>> b._validate() #doctest: +IGNORE_EXCEPTION_DETAIL
         Traceback (most recent call last):
         ValueError: invalid literal for int(): oops
         >>> b = Bag()

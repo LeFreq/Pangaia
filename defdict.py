@@ -219,8 +219,8 @@ class defdict(dict):
 
         >>> dd = defdict.fromkeys(range(5), 5)
         >>> ddcopy = dd.copy()
-        >>> print ddcopy.default, type(ddcopy); print ddcopy
-        5 <class 'defdict.defdict'>
+        >>> print ddcopy.default, isinstance(ddcopy, defdict); print ddcopy
+        5 True
         {0: 5, 1: 5, 2: 5, 3: 5, 4: 5}
         >>> ddcopy[0] = 7
         >>> print dd[0], ddcopy[0]
@@ -244,9 +244,6 @@ class defdict(dict):
         return '{' + ', '.join(["%r: %s" % (k, self[k]) for k in keys]) + '}'
 
 
-def _test():
-    import doctest, defdict
-    return doctest.testmod(defdict, isprivate=lambda *args: 0)
-
 if __name__ == "__main__":
-    _test()
+    import doctest
+    doctest.testmod()

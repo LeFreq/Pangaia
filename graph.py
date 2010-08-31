@@ -522,8 +522,8 @@ class Graph(GraphBaseType):
 
         >>> g = Graph(VertexType=WVertex)
         >>> g[1] = {}  #set g[1] to empty vertex (no out edges)
-        >>> type(g[1])
-        <class 'graph.WVertex'>
+        >>> type(g[1]) is WVertex
+        True
         >>> g[2] = {1: 4, 3: 9} #non-existent vertex values get created automatically
         >>> print g             #XXX what if VertexType==Vertex -> how to specify no edge value???
         {1: {}, 2: {1: 4, 3: 9}, 3: {}}
@@ -649,8 +649,8 @@ def _test():
     >>> g[5][7]
     1
     """
-    import doctest, graph
-    return doctest.testmod(graph, isprivate=lambda *args: 0)
+    import doctest
+    return doctest.testmod() #, isprivate=lambda *args: 0)
 
 if __name__ == '__main__':
     _test()

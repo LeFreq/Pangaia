@@ -1,11 +1,9 @@
 #!/usr/bin/env python
-# Mark Janssen, <average@mit.edu> July 1, 2002
+# Copyright 2010 Mark Janssen               
+# This file is part of PanGaia and licensed under the GNU General Public License v3 found at <http://www.gnu.org/licenses>
+# email: dreamingforward@gmail.com
 
 """Dictionary with default values, collision function, and sorted string output."""
-
-__version__ = "$Revision: 2.6 $"
-__author__  = "$Author: average $"
-__date__    = "$Date: 2003/07/04 00:38:56 $"
 
 import exceptions
 import copy

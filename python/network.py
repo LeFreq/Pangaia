@@ -1,11 +1,9 @@
 #!/usr/bin/env python
-# Mark Janssen, <average@mit.edu> July 7, 2002
+# Copyright 2010 Mark Janssen
+# This file is part of PanGaia and licensed under the GNU General Public License v3 found at <http://www.gnu.org/licenses>
+# email: dreamingforward@gmail.com
 
 """Network class for flow networks."""
-
-__version__ = "$Revision: 2.17 $"
-__author__  = "$Author: average $"
-__date__    = "$Date: 2003/07/04 01:28:47 $"
 
 #Add Network.time to track how many ticks
 #Have Network.add(v), add +1 to v.energy, may need to split function for

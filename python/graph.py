@@ -1,11 +1,9 @@
 #!/usr/bin/env python
-# Mark Janssen, <average@mit.edu> February 5, 2001
+# Copyright 2010 Mark Janssen
+# This file is part of PanGaia and licensed under the GNU General Public License v3 found at <http://www.gnu.org/licenses>
+# email: dreamingforward@gmail.com
 
 """Graph class."""
-
-__version__ = "$Revision: 2.15 $"
-__author__  = "$Author: average $"
-__date__    = "$Date: 2003/07/04 01:18:53 $"
 
 #change a lot of these for loops to use faster map() function (see FAQ and QuickReference)
 #also: map/reduce/filter now work with any iterable object (including dictionaries!)

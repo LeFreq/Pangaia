@@ -1,5 +1,7 @@
 #!/usr/bin/env python
-# Mark Janssen, <maj64@antisocial.com> June 1, 2003
+# Copyright 2010 Mark Janssen
+# This file is part of PanGaia and licensed under the GNU General Public License v3 found at <http://www.gnu.org/licenses>
+# email: dreamingforward@gmail.com
 
 from network import *
 

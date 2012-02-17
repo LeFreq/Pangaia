@@ -7,8 +7,8 @@ from graph import *
 #consider the vpython4 attenuation attribute of a light source and consider that it is a factor of the scaling relationship between the light source and the objects.
 
 scene.title="opacity test"
-scene.width, scene.height = 1024, 1400
-scene.lights=[]
+scene.width, scene.height = 1440, 900
+scene.lights=[ ]
 #scene.lights=[local_light(pos=(0,0,0), color=color.green, local=True, attentuation=(1,1,5))]
 #scene.lights=[distant_light(direction=(0, 1, 0), color=color.green, attentuation=(1,1,10))] #(1,1,0.8))]
 scene.material=materials.emissive
@@ -26,7 +26,7 @@ cities={"Denver","Seattle","Portland","Boise","Fargo","LA"}
 
 
 def rand3tuple(start, stop):
-    """"Return a 3-tuple of n random integers."""
+    """"Return a 3-tuple  consiting of random integers between start and stop."""
     return (randint(start, stop), randint(start, stop), randint(start, stop*2))
 
 

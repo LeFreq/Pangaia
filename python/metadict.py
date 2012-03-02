@@ -1,13 +1,19 @@
+# -*- coding: utf-8 -*-
 # Mark Janssen, dreamingforward@gmail.com, Santa Fe, NM
 
 #Ideally would dict inherit from set.
-#Ideally would have ABS compound type with a default value when no second parameter.
+#Ideally would have ABCs "compound" type with a default value when no second parameter.
 
 """
 A module defining a fractal (multi-level) dictionary type.
 """
 
-class Mdict(dict):
+import sys
+from collections import Counter
+
+#sys.setrecursionlimit(50)
+
+class Mdict(Counter):
     """Metadict:  for every operation d1 op d2, apply op to values where
     keys are in common. Cannot do arbitrary functions without breaking meta
     abstraction.  One level of recursion should be sufficient for real apps?
@@ -15,60 +21,58 @@ class Mdict(dict):
 
     #NOTE:  it's up to you to make each operation meaningful on your leaf-values.
 
-#    def __init__(self, init={}):
-#        """Initialize meta dict.  All values should be homogeneous or other MetaRecurs type."""
-    
+    def __init__(self, *args, **kwargs):
+        """Initialize meta dict.  All values should be homogeneous or other MetaRecurs type."""
+        super(Mdict, self).__init__(*args, **kwargs)
 
     def __add__(self, other):
-        """Add together,...
+        """Add together, with recursion.
 
-        >>> d + d2 == {'a':2, 'b':2}
-        >>> d + 1 == {None:1, 'a':1}
+        >>> m, m2 = Mdict('a'), Mdict('abb')
+        >>> m + m2 == {'a':2, 'b':2}
         True
-        >>> d['a'] = d2  #now fractal
+        >>> m + 1 == {None:1, 'a':1}
+        True
+        >>> m['a'] = m2  #now fractal
         >>>
         """
         try: # need to add (union) of keys, and then recurse into values of common keys
-            self += set(other.keys()) #base case for group
+            return Mdict(Counter.__add__(self, other)) #Counter.__add__(self, other)
+        except TypeError: #must've been an integer for other
+            return Mdict(Counter.__add__(self, Counter({None: other})))
+    
+        #    self += set(other.keys()) #base case for group
+#
+##        except AttributeError: #no keys() method
+##            try:
+##                self[None] += other
+##            except TypeError(other):
+##                print other + " must be integer."
 
-            for k in newdict:
-                if k in self and k in other:     #recurs
-                    newdict[k] = self[k] + other[k]
-                else:
-                    try:
-                        newdict[k] = self[k]
-                    except:
-                        newdict[k] = other[k]
+    #def __iadd__(self, other):
         
-            return Mdict(newdict)  #shouldn't recurs
-        except AttributeError:
-            try:
-                self[None] += other
-            except TypeError(other):
-                print other + " must be integer."
 
     def __radd__(self, other):
         """Add int to group.
 
-        >>> 1 + d == {None:1, 'a':1}
+        >>> m = Mdict('a')
+        >>> 1 + m == {None:1, 'a':1}
         True
         """
         #print self,other
         return self + other
                 
 
-    def __getitem__(self, key):
-        return self.get(key, 0)
-
-    def update(self, other):
-        return self + other
-
 
 if __name__ == "__main__":
 
-    d = Mdict({'a':1})
-    d2 = Mdict({'a':1, 'b':2})
-
+    #m = Mdict('a')
+    #print m
+    #m2 = Mdict('abb')
+    #print m2
+    
+    #print m+ m2
+    #print m + 1
     import doctest
 
     doctest.testmod()

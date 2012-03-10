@@ -2,6 +2,9 @@ from visual import *
 from random import *
 from graph import *
 
+# This is a very crude demo just to give a feel of a 3-d web navigation.  See pangaia.sf.net wiki article [[data visualization]].
+# In this model you can only rotate (right mouse), or zoom in/out holding the option/Alt key, it does not incorporate the gravity model yet, nor colorization.
+
 #TODO
 #set a fixed light at the top, and make a frame that will rotate objects without affecting the light.
 #consider the vpython4 attenuation attribute of a light source and consider that it is a factor of the scaling relationship between the light source and the objects.

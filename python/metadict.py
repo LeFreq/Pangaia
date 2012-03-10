@@ -19,6 +19,7 @@ class Mdict(Counter):
     abstraction.  One level of recursion should be sufficient for real apps?
     """
 
+    #With any "meta"-type, one must define a base-case that informs how one should perform grouping.
     #NOTE:  it's up to you to make each operation meaningful on your leaf-values.
 
     def __init__(self, *args, **kwargs):
@@ -26,7 +27,9 @@ class Mdict(Counter):
         super(Mdict, self).__init__(*args, **kwargs)
 
     def __add__(self, other):
-        """Add together, with recursion.
+        """Add together, with recursion.  The basic idea is that the set of keys
+        should be added together and then recurse the addition to the values where keys are shared
+        otherwise just add the value.
 
         >>> m, m2 = Mdict('a'), Mdict('abb')
         >>> m + m2 == {'a':2, 'b':2}
@@ -34,7 +37,10 @@ class Mdict(Counter):
         >>> m + 1 == {None:1, 'a':1}
         True
         >>> m['a'] = m2  #now fractal
-        >>>
+        >>> m == {'a': {'a':1, 'b':2}}
+        True
+        >>> m + m + 1 == {'a': {'a':2, 'b':4}, None: 1}
+        True
         """
         try: # need to add (union) of keys, and then recurse into values of common keys
             return Mdict(Counter.__add__(self, other)) #Counter.__add__(self, other)

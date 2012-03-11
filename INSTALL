@@ -1,0 +1,19 @@
+To run the (very) basic demo:
+
+Get VPython (free) at http://vpython.org.  The pangaia code is using python v2.7.
+
+Start VIDLE (included in the vpython) and open the demo.py file.
+
+Then Run.   Rotate is with right-mouse drag, and zoom with both buttons (or Option/Alt+Left-click/drag).  Left-click affects radius, but this is all very crude right now.
+
+TODO:
+
+* Add ability to add a label to a node.  Ideally only visible on mouse-over.
+* Add ability to link nodes, use a gravity/time-step to animate the nodes closer together.
+* Add ability to select a set of nodes and *group* them.
+
+
+Send feedback to dreamingforward@gmail.com.  Thanks!!
+
+Mark
+pangaia.sf.net

@@ -20,7 +20,7 @@ from random import *
 from graph import *
 
 scene.title="opacity test"
-scene.width, scene.height = 1440, 900
+scene.width, scene.height = 1440, 900  #XXX change this to fit your screen.
 worldradius = 5000
 #scene.lights=[ ]
 scene.lights=[local_light(pos=(0,0,0), color=color.green, local=True, attentuation=(1,1,5))]
@@ -55,7 +55,7 @@ def rand3tuple(start= -worldradius, stop = worldradius):
 #, material=materials.solid
 
 # Function for standardizing sphere drawing
-def mysphere(pos, color, opacity, radius, thickness=10, **kwargs):
+def mysphere(pos, color=defcolor, opacity=defopacity, radius=0.1*worldradius, thickness=10, **kwargs):
     sphere(pos=pos, color=(0,1,0) , opacity=1.0, radius=max(1, radius-thickness), **kwargs) #inner sphere
     POS2=vector(pos)+vector(0,1,0)
     if randint(1,50) == 10:
@@ -68,7 +68,7 @@ def mysphere(pos, color, opacity, radius, thickness=10, **kwargs):
 #local_light(pos=(0,0,0))
 #sphere(radius=10,pos=(0,0,0), materials=materials.chrome)
 for i in range(numspheres):
-    mysphere(pos=rand3tuple(), color=defcolor, opacity=defopacity, radius=randint(1,0.1*worldradius))
+    mysphere(pos=rand3tuple(), radius=randint(1,0.1*worldradius))
 
 ### Experiment in edge drawing
 ##nodes = scene.objects[:]
@@ -90,16 +90,15 @@ for i in range(numspheres):
 
 ## Simple event handling, currently only can click nodes and affect radius
 while True:
-    break
     rate(100)
     #f=scene.forward
     #print(scene.forward)
     if scene.mouse.events:
         mm=scene.mouse.getevent()
         if mm.pick==None: #create new sphere
-            pass #g[mysphere(pos=mm.pos,radius=1)]
+            mysphere(pos=mm.pos, radius=100)
         else:
-            print(mm.pick, mm.pick.radius)
+            print mm.pick, mm.pick.radius
             if mm.shift:
                 mm.pick.radius+=1
             else:

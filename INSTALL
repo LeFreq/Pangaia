@@ -1,17 +1,14 @@
 To run the (very) basic demo:
 
-Get VPython (free) at http://vpython.org.  The pangaia code is using python v2.7.
+Get VPython (free) at http://vpython.org.  The pangaia code uses python v2.7 so don't get the version for PythonV3.
 
 Start VIDLE (included in the vpython) and open the demo.py file.
 
-Then Run.   Rotate is with right-mouse drag, and zoom with both buttons (or Option/Alt+Left-click/drag).  Left-click affects radius, but this is all very crude right now.
+Then Run.  VPyhton has builtin rotate and zoom.
 
-TODO:
+Left-click affects radius, but that's all right now.
 
-* Add ability to add a label to a node.  Ideally only visible on mouse-over.
-* Add ability to link nodes, use a gravity/time-step to animate the nodes closer together.
-* Add ability to select a set of nodes and *group* them.
-
+See source file for TODO list.
 
 Send feedback to dreamingforward@gmail.com.  Thanks!!
 

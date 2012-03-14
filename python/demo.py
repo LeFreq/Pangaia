@@ -1,11 +1,23 @@
-from visual import *
-from random import *
-from graph import *
+#dreamingforward@gmail.com
+#pangaia.sf.net
 
-#TODO
+"""
+A very crude demo giving a feel for the 3-d environment potential for a content-centric internet.
+The natural functions of vpython allow you to rotate and zoom.
+"""
+
+#TODO:
+#1) Add ability to Label
+#2) Add ability to Link/associate nodes.  Animate linking with some [[gravity model]], function of node mass, etc.
+#3) Add ability to select a number of nodes and Group them.
+
 #set a fixed light at the top, and make a frame that will rotate objects without affecting the light.
 #consider the vpython4 attenuation attribute of a light source and consider that it is a factor of the scaling relationship between the light source and the objects.
 #Also, using the built-in camera with eye-tracking for depth discernment (courtesy Geoff Chesshire)
+
+from visual import *  #this is pulls in the visual python library
+from random import *
+from graph import *
 
 scene.title="opacity test"
 scene.width, scene.height = 1440, 900
@@ -19,7 +31,6 @@ defcolor = (0,0.7,0.1)
 defopacity = 0.8 #0.05
 numspheres = 100
 #scene.stereo="redcyan"
-
 
 ## Should encapsulate these into a class, integrated with graph nodes.
 #class mysphere(sphere):
@@ -36,7 +47,7 @@ numspheres = 100
 
 def rand3tuple(start= -worldradius, stop = worldradius):
     """"Return a 3-tuple  consiting of random integers between start and stop."""
-    return (randint(start, stop), randint(start, stop), randint(start, stop*2))
+    return (randint(start, stop), randint(start, stop), randint(start, stop*2)) #note adjustment on z 
 
 
 #This looks nice: inner sphere: chrome, light.color=green, outsphere=glass, opacity=0.4
@@ -77,7 +88,7 @@ for i in range(numspheres):
 #    l.append(rand3tuple())    
 #points(pos=l, size=1, color=color.gray(0.1), size_units="world")
 
-# Simple event handling, currently only can click nodes and affect radius
+## Simple event handling, currently only can click nodes and affect radius
 while True:
     break
     rate(100)

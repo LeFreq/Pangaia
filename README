@@ -1,14 +1,17 @@
-Hello!  This is a software project called PanGaia.  It will create a P2P
-optimized flow network and generate a *content-centric* web to supplant 
-the outdated geo- and server-centric web.  
+Hello!  This is a software project called PanGaia: An answer to 
+PIPA/SOPA and other economic woes of the creative class. Currently
+in pre-alphs and awaiting more code, but a simple demo of what a 
+content-centric internet can look like is available. See the wiki 
+for spec and throw out the outdated geo- and server-centric web.  
 
-It's aim is high: a maximally collaborative, minimally superfluous, 
-3-dimensional system for sharing knowledge and creativity to make a 
-unified, self-organizing, fractal economy of information and knowledge, 
-giving fair credit to each contributor, solving once and for all
-the problem of compensation and piracy without stifling innovation.
+It's aim is high: a maximally collaborative (P2P), minimally 
+superfluous, 3-dimensional *content-centric* web for sharing 
+knowledge and creativity to form a unified, self-organizing, fractal 
+economy of information and knowledge, giving fair credit to each 
+contributor, solving once and for all the problem of compensation and 
+piracy without stifling innovation.
 
-A basic demo(.py) is easy to zoom around in and get a sense of 
+The basic demo(.py) is easy to zoom around in and get a sense of 
 the 3-d environment.  VPython is free and can be located at 
 http://vpython.org.
 

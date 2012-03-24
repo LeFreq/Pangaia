@@ -14,7 +14,6 @@ from graph import *
 from bag import *
 
 _DEBUG = True
-DEFAULT_FLOW = 1
 
 NodeBaseType = IntegerBag
 FlowType = IntegerBag
@@ -25,14 +24,12 @@ class Node(ReverseEdgeMixin, WVertex, NodeBaseType): #order needed for Vertex.di
 
     __slots__ = ['reverse', 'flow_out', 'last_tick']
 
-    EDGEVALUE = 1  #default capacity #XXX does not change references to EDGEVALUE in Vertex classes!
-
     def __init__(self, network, id, init={}):
         self.flow_out = FlowType()
         super(Node, self).__init__(network, id, init)  #parent class should call Node.__setitem__ to add Nodes to Network if necessary.
         self.reverse = NodeBaseType(self.reverse)
 
-    def update(self, sinks, capacity=EDGEVALUE):
+    def update(self, sinks, capacity=1):
         """Add sinks to node.  If sinks is type Node, then add Node energy too.
 
         >>> n = Network({1: {1: 1, 2: 4, 3: 9}})
@@ -152,7 +149,7 @@ class Node(ReverseEdgeMixin, WVertex, NodeBaseType): #order needed for Vertex.di
         super(Node, self)._validate()
 
 
-class Source(Node):
+class Source(Node):  #Crown
     """Special node that produces flow to other nodes.
 
     >>> n = Network({1: {2: 2}})
@@ -183,7 +180,7 @@ class Source(Node):
 
     def __init__(self, *args):
         super(Source, self).__init__(*args)
-        self.energy = self.sum_out() or DEFAULT_FLOW
+        self.energy = self.sum_out() or 1  #default flow is the unit integer.
 
     def _push(self, bits, tick):
         if bits >= 0:
@@ -320,7 +317,7 @@ class KeySource(FileSource):
     __del__ = stop
 
 
-class Sink(Node):
+class Sink(Node):  #root
     """Special node type.  Energy leaves network out of here.
 
     >>> n = Network({1: {2: 1}})
@@ -526,12 +523,15 @@ class Network(Graph):
             assert vid in self, "Energy exists on non-existant node"
 
 
-def tt(net, count=10, stime=1):
+def run(net, count=10, interval=1):
+    """Simple simulation runner, will run for count time-steps on a given network net.
+    Use a network with a KeySource attached.  See KeySource doc on how to do that.
+    """
     import time
     for i in range(count):
         net()
         net.display()
-        time.sleep(stime)
+        time.sleep(interval)
 
 
 def _test():
@@ -605,9 +605,10 @@ def _test():
     >>> print n
     {1: 7 {1: 1, 2: 7, 4: 4}, 2: 0 {}, 3: 1 {2: 2, 3: 2, 5: 1}, 4: 0 {}, 5: 0 {}}
     """
+    pass
 
+if __name__ == '__main__':
     import doctest
-    return doctest.testmod() # network, isprivate=lambda *args: 0)
+    doctest.testmod() # network, isprivate=lambda *args: 0)
 
-if __name__ == '__main__': _test()
-
+    #note doctests for keysource don't work within VIDLE shell for some reason (proxy object used for stdin, I think).

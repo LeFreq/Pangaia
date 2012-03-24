@@ -22,9 +22,6 @@ import random  #pick()
 
 _DEBUG = True
 
-class RealBag:
-    pass
-
 class IntegerBag(dict):
     """Implements a bag type that allows item counts to be negative."""
 
@@ -126,7 +123,7 @@ class IntegerBag(dict):
                 try:
                     self[key] += count
                 except TypeError as error: err = Trie
-        if err: raise TypeError() from error
+        if err: raise TypeError(error)
 
     def pick(self, count=1, remove=True): #XXX perhaps better to default to False?
         """Returns a bag with 'count' random items from bag (defaults to 1), removing the items unless told otherwise.

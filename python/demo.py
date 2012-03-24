@@ -3,9 +3,12 @@
 
 """
 A very crude demo giving a feel for the 3-d environment potential for a content-centric web.
-Rotate view with the right-mouse drag and Zoom using both buttons (Mac: use Option key).
+
+Rotate scene with the right-mouse drag and Zoom using both buttons (Mac: use Option key).
 """
 
+#The amazing thing about VPython, is that I'm able to create a fairly complex visual 3-d environment in only 50lines of code!
+#
 #TODO:
 #1) Create a node class derived from sphere object.
 #2) Add ability to Label a node.
@@ -14,19 +17,22 @@ Rotate view with the right-mouse drag and Zoom using both buttons (Mac: use Opti
 #5) Currently drawing random nodes.  Create an interface to import gmail messages and prompt user to sort.
 #6) since vpython has no depth shading, use built-in camera w/eye tracking to move the scene around as head moves.
 
+##See the github.com/theProphet/Social-Garden issues list for TODO items...
+
 #set a fixed light at the top, and make a frame that will rotate objects without affecting the light.
 #consider the vpython4 attenuation attribute of a light source and consider that it is a factor of the scaling relationship between the light source and the objects.
 #Also, using the built-in camera with eye-tracking for depth discernment (idea from Geoff Chesshire)
+#Notes: on #3, for determining animation, consider the number of links akin to inertial mass, use that (not "rest mass") to determine who/what should move.
 
 from __future__ import division   #XXX: shouldn't have to do this -- isn't it the future already?
 
-from visual import *  #this pulls in the visual python library from the VPython
-from random import *  #from the Python standard library
-from graph import *   #pangaia module
+from visual import *  #this pulls in the visual python library from VPython
+import random         #from the Python standard library
+from network import * #pangaia module
 
 ###Rule of Thumb #1:  Put the most arbitrary values at the top of the code.  Let users tweak.
 num_nodes = 100                   #number of nodes to draw
-p_nodes_lit = 0.07                  #light 7% of the nodes, chosen randomly
+p_nodes_lit = 0.07                #light x% of the nodes, chosen randomly.  Try 0, and then click to add a light source.
 
 ###Rule of Thumb #2:  Variable casing should be dynamic -- if variable is a part of a larger whole, use lower_case, otherwise CamelCase.
 UserNodeName = "Neophyte"  #This will be your personal Node name as seen from the view of the social garden
@@ -45,7 +51,7 @@ scene.material = materials.diffuse #sets default material when none specified
 mean_node_radius = 20           #This should start 0 or 1 and is akin to mass.
 world_radius =  int(mean_node_radius*num_nodes/8)    #XXX this isn't the right equation   #this sets the default "size" of the world, a cubic, cartesian volume determined by the number of nodes.  All vector ops reference this coordinate space. A function of num_nodes, as radius=1 places a known lower bound. VPython caluculates a "bounded box" that will contain everything in the scene.
 base_color = color.green           #nodes start in the middle of the rainbow
-base_opacity = 0.95                #A function of how much trust there is in the network.  Lower values ==> greater trust
+base_opacity = 0.97                #A function of how much trust there is in the network.  Lower values ==> greater trust
 
 ##The view in the blank window will depend on whether you're in your own Node (the "polar coordinate view) or viewing from outside it (the "cartesian veiw").
 ##Inside your node, you are seeing all the relationships that pertain to you, organized around your central basis (i.e. machine name)
@@ -54,21 +60,12 @@ base_opacity = 0.95                #A function of how much trust there is in the
 
 
 ## Should encapsulate these into a class, integrated with graph nodes.
-#class node(sphere):
-#    def __init__(self, pos, mass, valence, lit, noosphere, **kwargs):
-#        super().__init__(**kwargs)
-#        try:
-#            radius=kwargs["radius"]
-#            radius=max(1,radius-thickness)
-#        except KeyError:
-#            pass
-#        kwargs["radius"]=radius
-#        sphere(kwargs) #draw a second sphere
-
-
-def rand3tuple(start = -world_radius, stop = world_radius):
-    """"Return a 3-tuple  consiting of random integers between start and stop."""
-    return (randint(start, stop), randint(start, stop), randint(start, stop*2)) #note adjustment on z 
+class Node(sphere):
+    """Node object, derived from sphere."""
+    
+    def __init__(self, name, pos, mass=mean_node_radius, valence=base_color, lit=False, noosphere=mean_node_radius/2, **kwargs):
+        
+        super().__init__(**kwargs)
 
 
 def atmos(valence, ambient=scene.ambient):   #XXX sloppy
@@ -79,6 +76,11 @@ def atmos(valence, ambient=scene.ambient):   #XXX sloppy
     c[2] = min(c[2] + 0.2, 1)  #XXX this is totally arbitrary, but I like a little blue in there.  Ideally should move towards the ambient background color.
     return c
 
+def rand3tuple(start = -world_radius, stop = world_radius):
+    """"Return a 3-tuple  consiting of random integers between start and stop."""
+    return (random.randint(start, stop), random.randint(start, stop), random.randint(start, stop*2)) #note adjustment on z 
+
+
 ##def world_to_pixels(z):
 ##    """Adjust size for depth."""
 ##    return 1 + (world_radius * 2) / 20
@@ -88,7 +90,9 @@ def atmos(valence, ambient=scene.ambient):   #XXX sloppy
 #Note: materials = {wood, rough, marble, plastic, earth, diffuse, emissive, unshaded, shiny, chrome, blazed, silver, BlueMarbe, bricks}
 def node(name, pos, mass=mean_node_radius, valence=base_color, lit=False, noosphere=mean_node_radius/2, **kwargs):  #noosphere argument arbitrary
     """Draws a node on the screen.  Currently, a node is a sphere, plus an atmosphere."""
-    label(pos=pos, text=name, box=False, opacity=0, color=color.gray(0.4), line=False, height=6)
+    n.add(name)
+    n[name].energy = mass
+    #label(pos=pos, text=name, box=False, opacity=0, color=color.gray(0.4), line=False, height=6)
     hsvcolor = vector(color.rgb_to_hsv(valence))
     if lit:  #primitve activity model:  make it a light source  #local_light(pos=pos, color=(1.0,0,0)) or at least maximize saturation #XXX is this working?
         local_light(pos=pos, color=color.white)
@@ -101,7 +105,7 @@ def node(name, pos, mass=mean_node_radius, valence=base_color, lit=False, noosph
 
 ###################################################################
 
-g = Graph()
+n = Network()  #change this to use Network rather than Graph.
 
 ### Rotation should be tried...
 ##for i in arange(0,pi):
@@ -115,14 +119,13 @@ g = Graph()
 ##cities={"Denver","Seattle","Portland","Boise","Fargo","LosAngeles"}
 ##The actual drawing of nodes here
 for i in range(num_nodes):
-    light = (random() > 1 - p_nodes_lit)
+    light = (random.random() > 1 - p_nodes_lit)
     name = default_name + str(i)
     
     if light:
         print "lit", name
         
-    g.add(name)  #this really doesn't do anything right now
-    node(name, rand3tuple(), randint(1,mean_node_radius), base_color, light, randint(int(mean_node_radius/2), mean_node_radius*2))
+    node(name, rand3tuple(), random.randint(1,mean_node_radius), base_color, light, random.randint(int(mean_node_radius/2), mean_node_radius*2))
 
 
 ### Experiment in edge drawing
@@ -139,7 +142,7 @@ while True:
     #print(scene.forward)
     if scene.mouse.events:
         mm=scene.mouse.getevent()
-        if mm.pick==None: #create new sphere
+        if mm.pick==None: #create new sphere XXX just testing
             node("light", pos=mm.pos, lit=True)
         else:
             print mm.pick, mm.pick.radius
@@ -153,4 +156,4 @@ while True:
             break
         #elif key == "Left-Shift"
 
-print(g)
+print(n)

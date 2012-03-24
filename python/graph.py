@@ -31,7 +31,7 @@ class VertexCommon(VertexBaseType):
     #Add id property to determine id, given Vertex
     #XXX should clear() also remove in_vertices()?
 
-    __slots__ = ['_graph', '_id']
+    __slots__ = ['_graph', '_id']  #functioning as a sort of "variable declaration" list
 
     EDGEVALUE = 1
 

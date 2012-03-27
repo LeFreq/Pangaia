@@ -42,8 +42,7 @@ class Node(ReverseEdgeMixin, WVertex, NodeBaseType): #order needed for Vertex.di
         if isinstance(sinks, Node): self.energy += sinks.energy
 
     add = update
-
-    def __getitem__(self, sink): return NodeBaseType.__getitem__(self, sink) #XXX doctest won't allow __getitem__ = NodeBaseType.__getitem__
+    __getitem__ = NodeBaseType.__getitem__
 
     def __delitem__(self, sink):
         """Removes outgoing sink and clears any associated flow."""

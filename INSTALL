@@ -1,12 +1,15 @@
 To run the (very) basic demo:
 
-Get VPython (free) at http://vpython.org.  The pangaia code uses python v2.7 so don't get the version for PythonV3.
+Get VPython (free) at http://vpython.org.  
+The pangaia code uses python v2.7 so don't get the version for PythonV3.
 
-Start VIDLE (included in the vpython) and open pangaia's demo.py file.
+Start VIDLE (included in the vpython) and open the demo.py file located
+in Social-Garden's python directory.
 
 Then Run.  VPython has builtin rotate and zoom.
 
-Left-click affects radius on existing node otherwise creates a new light source.
+Left-click affects radius on existing node otherwise creates 
+a new light source.
 
 See source file for TODO list.
 

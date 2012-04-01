@@ -33,6 +33,7 @@ from network import * #pangaia module
 ###Rule of Thumb #1:  Put the most arbitrary values at the top of the code.  Let users tweak.
 num_nodes = 100                   #number of nodes to draw
 p_nodes_lit = 0.07                #light x% of the nodes, chosen randomly.  Try 0, and then click to add a light source.
+want_labels = True                #turn off for only spheres
 
 ###Rule of Thumb #2:  Variable casing should be dynamic -- if variable is a part of a larger whole, use lower_case, otherwise CamelCase.
 UserNodeName = "Neophyte"  #This will be your personal Node name as seen from the view of the social garden
@@ -45,7 +46,7 @@ scene.ambient = color.gray(0.05)   #sets background light:  should be a function
 #scene.lights=[ ]                  #eliminates default lights
 #scene.lights=local_light(pos=(0,0,0), color=color.white, local=True, attentuation=(1,1,5))
 #scene.lights=[distant_light(direction=(0, 1, 0), color=color.white, attentuation=(1,1,10))] #(1,1,0.8))]
-scene.material = materials.diffuse #sets default material when none specified
+scene.material = materials.diffuse #sets default material when none specified, aim for least information carrying material
 #scene.stereo="redcyan"            #gives nice depth effect if you have red/cyan glasses, ultimately plan is to use built-in camera if availble
 
 mean_node_radius = 20           #This should start 0 or 1 and is akin to mass.
@@ -54,19 +55,9 @@ base_color = color.green           #nodes start in the middle of the rainbow
 base_opacity = 0.97                #A function of how much trust there is in the network.  Lower values ==> greater trust
 
 ##The view in the blank window will depend on whether you're in your own Node (the "polar coordinate view) or viewing from outside it (the "cartesian veiw").
-##Inside your node, you are seeing all the relationships that pertain to you, organized around your central basis (i.e. machine name)
-##Outside your node, you navigate the (relatively unrelated) universe of nodes.
+##Inside your node, you are seeing all the relationships that pertain to you, can vote links (now visual) up/down to affect flows, organized around your central basis (i.e. machine name)
+##Outside your node, you navigate the (relatively unrelated) universe of nodes, vote nodes up/down to affect visibility
 ##Perhaps could zoom to edge of node-field and then (*bleep*) transit out to see the universe.
-
-
-## Should encapsulate these into a class, integrated with graph nodes.
-class Node(sphere):
-    """Node object, derived from sphere."""
-    
-    def __init__(self, name, pos, mass=mean_node_radius, valence=base_color, lit=False, noosphere=mean_node_radius/2, **kwargs):
-        
-        super().__init__(**kwargs)
-
 
 def atmos(valence, ambient=scene.ambient):   #XXX sloppy
     """Returns the color of the outershell, given node color and ambient background."""
@@ -92,7 +83,7 @@ def node(name, pos, mass=mean_node_radius, valence=base_color, lit=False, noosph
     """Draws a node on the screen.  Currently, a node is a sphere, plus an atmosphere."""
     n.add(name)
     n[name].energy = mass
-    #label(pos=pos, text=name, box=False, opacity=0, color=color.gray(0.4), line=False, height=6)
+    if want_labels: label(pos=pos, text=name, box=False, opacity=0, color=color.gray(0.4), line=False, height=6)
     hsvcolor = vector(color.rgb_to_hsv(valence))
     if lit:  #primitve activity model:  make it a light source  #local_light(pos=pos, color=(1.0,0,0)) or at least maximize saturation #XXX is this working?
         local_light(pos=pos, color=color.white)

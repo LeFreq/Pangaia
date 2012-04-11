@@ -4,8 +4,9 @@
 # email: dreamingforward@gmail.com
 # Python version 3.0
  
-"""Bag types"""
+"""Bag types:  a set-like container that counts the number of same items held within it."""
 
+#XXX consider replacing this module with the collections.Counter type in the Python standard library.
 #bag should have list interface? --should add list methods: append, remove, min/max,  __str__ return list string, etc.
 #   in addition to min/max(), perhaps create most/least() to return the item with the highest/lowest count
 #XXX checking in setitem takes too much time: create compress function that removes zero-valued items periodically or on methods which rely on non-zero values: __contains__, iter, str, etc.

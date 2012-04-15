@@ -11,7 +11,14 @@ Then Run.  VPython has builtin rotate and zoom.
 Left-click affects radius on existing node otherwise creates 
 a new light source.
 
-See source file for TODO list.
+*****
+
+Believe it or not, although there's only half-dozen files and the project 
+non-functional, it's still nearly 90% complete.  Need only to set the
+relationships from the flow network to the visual representations, and
+get the (few) events programmed in.
+
+See source file for more TODO list.
 
 Send feedback to dreamingforward@gmail.com.  Thanks!!
 

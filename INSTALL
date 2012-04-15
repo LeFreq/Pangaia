@@ -14,9 +14,9 @@ a new light source.
 *****
 
 Believe it or not, although there's only half-dozen files and the project 
-non-functional, it's still nearly 90% complete.  Need only to set the
-relationships from the flow network to the visual representations, and
-get the (few) events programmed in.
+non-functional, it's still nearly 90% there to a working prototype.
+Need only to set the relationships from the flow network to their visual 
+representations, and get the (few) events programmed in.
 
 See source file for more TODO list.
 

@@ -1,26 +1,27 @@
 To run the (very) basic demo:
 
-Get VPython (free) at http://vpython.org.  
-The pangaia code uses python v2.7 so don't get the version for PythonV3.
+Get VPython (free) at http://vpython.org.  The pangaia project uses 
+python v2.7 so don't get the version for PythonV3.
 
-Start VIDLE (included in the vpython) and open the demo.py file located
-in Social-Garden's python directory.
+Start VIDLE (included in the vpython) and then open the demo.py file 
+located in Social-Garden's python directory.
 
-Then Run.  You can zoom (Alt-Left mouse) and rotate (right-mouse).  
-Try it to get the full effect.  Left-click affects radius on existing 
-node otherwise createsa new light source.
+Then Run -> Run Module.  You can zoom (Alt-Left mouse) and rotate 
+(right-mouse).  Try it to get the full effect.  Left-click affects 
+radius on existing node otherwise creates a new light source.
 
 *****
 
-Believe it or not, although there's only half-dozen files and the project 
-non-functional, it's still nearly 90% there to a working prototype.
-Need only to set the relationships from the flow network to their visual 
-representations, and get the mouse events programmed in.
+Believe it or not, although there's only half-dozen files and the 
+project is non-functional, it's still nearly 90% there to a working 
+prototype.  Need only to set the relationships from the flow network 
+to their visual representations, and get the mouse events programmed 
+in.  See the source file(s) for TODO list(s).
 
-See the Pangaia World Game http://ow.ly/9KJVn for how it should all
-[inter-]operate and the source file(s) for more TODO list(s).
+And see the Pangaia Paper at <http://ow.ly/9KJVn> for how it all 
+fits it in a grand scheme to create a beautiful world.  
 
-Send feedback to dreamingforward@gmail.com.  Thanks!!
+Feedback to dreamingforward@gmail.com.  Thanks!!
 
 Mark
 pangaia.sf.net

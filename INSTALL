@@ -6,17 +6,16 @@ The pangaia code uses python v2.7 so don't get the version for PythonV3.
 Start VIDLE (included in the vpython) and open the demo.py file located
 in Social-Garden's python directory.
 
-Then Run.  VPython has builtin rotate and zoom.
-
-Left-click affects radius on existing node otherwise creates 
-a new light source.
+Then Run.  You can zoom (Alt-Left mouse) and rotate (right-mouse).  
+Try it to get the full effect.  Left-click affects radius on existing 
+node otherwise createsa new light source.
 
 *****
 
 Believe it or not, although there's only half-dozen files and the project 
 non-functional, it's still nearly 90% there to a working prototype.
 Need only to set the relationships from the flow network to their visual 
-representations, and get the (few) events programmed in.
+representations, and get the mouse events programmed in.
 
 See the Pangaia World Game http://ow.ly/9KJVn for how it should all
 [inter-]operate and the source file(s) for more TODO list(s).

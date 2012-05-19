@@ -1,5 +1,6 @@
 #dreamingforward@gmail.com
-#pangaia.sf.net
+#wiki: pangaia.sf.net
+#repo: http://github.com/theProphet/Social-Garden
 
 """
 A very crude demo giving a feel for the 3-d environment potential for a content-centric web.

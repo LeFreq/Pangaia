@@ -3,8 +3,7 @@
 #repo: http://github.com/theProphet/Social-Garden
 
 """
-A very crude demo giving a feel for the 3-d environment potential for a content-centric web.
-
+Cyberspace Project.
 Rotate scene with the right-mouse drag and Zoom using both buttons (Mac: use Option key).
 """
 

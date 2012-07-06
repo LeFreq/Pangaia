@@ -3,7 +3,11 @@
 #repo: http://github.com/theProphet/Social-Garden
 
 """
+<<<<<<< HEAD
 Cyberspace Project.
+=======
+Cyperspace project.
+>>>>>>> minor docs change
 Rotate scene with the right-mouse drag and Zoom using both buttons (Mac: use Option key).
 """
 
@@ -12,10 +16,11 @@ Rotate scene with the right-mouse drag and Zoom using both buttons (Mac: use Opt
 #TODO:
 #1) Create a node class derived from sphere object.
 #2) Add ability to Label a node.
-#3) Add ability to Link/associate nodes.  Animate linking with some [[gravity model]], function of node mass, etc.
-#4) Add ability to select a number of nodes and Group them.
-#5) Currently drawing random nodes.  Create an interface to import gmail messages and prompt user to sort.
-#6) since vpython has no depth shading, use built-in camera w/eye tracking to move the scene around as head moves.
+#3) Add vote-way up and vote way-down, animatng the nodes into and out of view along the z axis. (Navigator view)
+#4) Add ability to Link/associate nodes.  Animate linking with some [[gravity model]], function of node mass, etc.
+#5) Add ability to select a number of nodes and Group them.
+#6) Currently drawing random nodes.  Create an interface to import gmail messages and prompt user to sort.
+#7) since vpython has no depth shading, use built-in camera w/eye tracking to move the scene around as head moves.
 
 ##See the github.com/theProphet/Social-Garden issues list for TODO items...
 
@@ -32,7 +37,7 @@ from network import * #pangaia module
 
 ###Rule of Thumb #1:  Put the most arbitrary values at the top of the code.  Let users tweak.
 num_nodes = 100                   #number of nodes to draw
-p_nodes_lit = 0.07                #light x% of the nodes, chosen randomly.  Try 0, and then click to add a light source.
+p_nodes_lit = 0.05                #light x% of the nodes, chosen randomly.  Try 0, and clicking to add a light source: real-time 3-d light projection.
 want_labels = False                #turn off for only spheres
 
 ###Rule of Thumb #2:  Variable casing should be dynamic -- if variable is a part of a larger whole, use lower_case, otherwise CamelCase.
@@ -53,7 +58,7 @@ scene.material = materials.diffuse #sets default material when none specified, a
 mean_node_radius = 20           #This should start 0 or 1 and is akin to mass.
 world_radius =  int(mean_node_radius*num_nodes/8)    #XXX this isn't the right equation   #this sets the default "size" of the world, a cubic, cartesian volume determined by the number of nodes.  All vector ops reference this coordinate space. A function of num_nodes, as radius=1 places a known lower bound. VPython caluculates a "bounded box" that will contain everything in the scene.
 base_color = color.green           #nodes start in the middle of the rainbow
-base_opacity = 0.97                #A function of how much trust there is in the network.  Lower values ==> greater trust
+base_opacity = 0.98                #A function of how much trust there is in the network.  Lower values ==> greater trust
 
 ##The view in the blank window will depend on whether you're in your own Node (the "polar coordinate view) or viewing from outside it (the "cartesian veiw").
 ##Inside your node, you are seeing all the relationships that pertain to you, can vote links (now visual) up/down to affect flows, organized around your central basis (i.e. machine name)
@@ -118,11 +123,10 @@ for i in range(num_nodes):
 
 scene.autoscale=False
 
-##
 ### Rotation should be tried...
 ##for i in arange(1,360,0.1):
 ##    rate(100)
-##    f.rotate(angle=pi/3600)
+##    f.rotate(angle=pi/3600, axis=(0,0,1))
 
 ### Experiment in edge drawing
 ##nodes = scene.objects[:]
@@ -132,6 +136,9 @@ scene.autoscale=False
 ##    curve(pos=[s.pos, tail.pos], color=(0.1,0.1,0.1), radius=4, visible=False)
 
 ## Simple event handling, currently only can click nodes and affect radius
+#Ideally:
+#1. hover should show node name
+#2 left-click for 1/2 second prompt to create node.
 while True:
     rate(100)  #sets an upper-bound on how often the loop runs.
     #f=scene.forward

@@ -1,9 +1,9 @@
 #dreamingforward@gmail.com
-#pangaia.sf.net  (for Phil and Lucy)
+#wiki: pangaia.sf.net
+#repo: http://github.com/theProphet/Social-Garden
 
 """
-A very crude demo giving a feel for the 3-d environment potential for a content-centric web.
-
+Cyberspace Project.
 Rotate scene with the right-mouse drag and Zoom using both buttons (Mac: use Option key).
 """
 
@@ -12,10 +12,11 @@ Rotate scene with the right-mouse drag and Zoom using both buttons (Mac: use Opt
 #TODO:
 #1) Create a node class derived from sphere object.
 #2) Add ability to Label a node.
-#3) Add ability to Link/associate nodes.  Animate linking with some [[gravity model]], function of node mass, etc.
-#4) Add ability to select a number of nodes and Group them.
-#5) Currently drawing random nodes.  Create an interface to import gmail messages and prompt user to sort.
-#6) since vpython has no depth shading, use built-in camera w/eye tracking to move the scene around as head moves.
+#3) Add vote-way up and vote way-down, animatng the nodes into and out of view along the z axis. (Navigator view)
+#4) Add ability to Link/associate nodes.  Animate linking with some [[gravity model]], function of node mass, etc.
+#5) Add ability to select a number of nodes and Group them.
+#6) Currently drawing random nodes.  Create an interface to import gmail messages and prompt user to sort.
+#7) since vpython has no depth shading, use built-in camera w/eye tracking to move the scene around as head moves.
 
 ##See the github.com/theProphet/Social-Garden issues list for TODO items...
 
@@ -26,13 +27,14 @@ Rotate scene with the right-mouse drag and Zoom using both buttons (Mac: use Opt
 
 from __future__ import division   #XXX: shouldn't have to do this -- isn't it the future already?
 
-import visual         #this pulls in the visual python library, VPython (v5.7)  (http://vpython.org)
+from visual import *  #this pulls in the visual python library, VPython (v5.7)  (http://vpython.org)
 import random         #from the Python standard library
 from network import * #pangaia module, not really utilized yet
 
 ###Rule of Thumb #1:  Put the most arbitrary values at the top of the code.  Let users tweak.
 num_nodes = 100                   #number of nodes to draw
 p_nodes_lit = 0.07                #light x% of the nodes, chosen randomly.  Try 0%, and then click a dark spot to add a light source.
+want_labels = False               #turn off for only spheres
 
 ###Rule of Thumb #2:  Variable casing should be dynamic -- if variable is a part of a larger whole, use lower_case, otherwise CamelCase.
 UserNodeName = "Neophyte"  #This will be your personal Node name as seen from the view of the social garden
@@ -42,10 +44,12 @@ default_name = "node"      #Nodes will take this name plus a number
 
 mean_node_radius = 20           #This should start 0 or 1 and is akin to mass.
 world_radius =  int(mean_node_radius*num_nodes/8)    #XXX this isn't the right equation   #this sets the default "size" of the world, a cubic, cartesian volume determined by the number of nodes.  All vector ops reference this coordinate space. A function of num_nodes, as radius=1 places a known lower bound. VPython caluculates a "bounded box" that will contain everything in the scene.
+base_color = color.green        #nodes start in the middle of the rainbow
+base_opacity = 0.98             #A function of how much trust there is in the network.  Lower values ==> greater trust
 
 ##The view in the blank window will depend on whether you're in your own Node (the "polar coordinate view) or viewing from outside it (the "cartesian veiw").
-##Inside your node, you are seeing all the relationships that pertain to you, organized around your central basis (i.e. machine name)
-##Outside your node, you navigate the (relatively unrelated) universe of nodes.
+##Inside your node, you are seeing all the relationships that pertain to you, can vote links (now visual) up/down to affect flows, organized around your central basis (i.e. machine name)
+##Outside your node, you navigate the (relatively unrelated) universe of nodes, vote nodes up/down to affect visibility.
 ##Perhaps could zoom to edge of node-field and then (*bleep*) transit out to see the universe.
 
 class pangaia(visual):  #has-a Network
@@ -101,7 +105,7 @@ class GNode(Node):
         network.add(name)
 
         self.energy = mass
-        #label(pos=pos, text=name, box=False, opacity=0, color=color.gray(0.4), line=False, height=6)
+        if want_labels: label(pos=pos, text=name, box=False, opacity=0, color=color.gray(0.4), line=False, height=6)
         hsvcolor = vector(color.rgb_to_hsv(valence))
         if lit:  #primitve activity model:  make it a light source  #local_light(pos=pos, color=(1.0,0,0)) or at least maximize saturation #XXX is this working?
             local_light(pos=pos, color=color.white)
@@ -134,7 +138,7 @@ def rand3tuple(start = -world_radius, stop = world_radius):
 # MAIN
 ###################################################################
 
-net = pangaia()
+net = pangaia()  #n = Network() ???
 d = dict()
 
 ### Rotation should be tried...

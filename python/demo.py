@@ -3,11 +3,7 @@
 #repo: http://github.com/theProphet/Social-Garden
 
 """
-<<<<<<< HEAD
 Cyberspace Project.
-=======
-Cyperspace project.
->>>>>>> minor docs change
 Rotate scene with the right-mouse drag and Zoom using both buttons (Mac: use Option key).
 """
 
@@ -21,6 +17,8 @@ Rotate scene with the right-mouse drag and Zoom using both buttons (Mac: use Opt
 #5) Add ability to select a number of nodes and Group them.
 #6) Currently drawing random nodes.  Create an interface to import gmail messages and prompt user to sort.
 #7) since vpython has no depth shading, use built-in camera w/eye tracking to move the scene around as head moves.
+
+#OR, make a file tree viewer:  use opacity for historical sizes, rooted at /, to experiment with distinction between nav and create modes.
 
 ##See the github.com/theProphet/Social-Garden issues list for TODO items...
 

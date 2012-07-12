@@ -143,8 +143,10 @@ while True:
     #print(scene.forward)
     if scene.mouse.events:
         mm=scene.mouse.getevent()
+        scene.mouse.getclick()  #assume it's a click, remove from "buffer"
+
         if mm.pick==None: #create new sphere XXX just testing
-            gnode(f, "light", pos=mm.pos, lit=True)
+            gnode(f, "light", pos=mm.pos+(0,0,random.randint(-world_radius, +world_radius)), lit=True) #z axis not determinable with 2-d mouse position
         else:
             print mm.pick, mm.pick.radius
             if mm.shift:  #XXX this is crude need to send this to node object so it both spheres get adjusted

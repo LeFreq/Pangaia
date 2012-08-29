@@ -3,11 +3,11 @@
 #repo: http://github.com/theProphet/Social-Garden
 
 """
-Cyberspace Project.
+Cyberspace Project (The Glass Bead Game).  A preview of a Network Operating System.
 Rotate scene with the right-mouse drag and Zoom using both buttons (Mac: use Option key).
 """
 
-#The amazing thing about VPython, is that I'm able to create a fairly complex visual 3-d environment in only 50lines of code!
+#The amazing thing about VPython, is that I'm able to create a fairly complex, interactive visual 3-d environment in only 50lines of code!
 #
 #TODO:
 #1) Create a node class derived from sphere object.
@@ -21,6 +21,8 @@ Rotate scene with the right-mouse drag and Zoom using both buttons (Mac: use Opt
 #OR, make a file tree viewer:  use opacity for historical sizes, rooted at /, to experiment with distinction between nav and create modes.
 
 ##See the github.com/theProphet/Social-Garden issues list for TODO items...
+
+#???: Add to github wiki todo list:  Make an import of users web history and show it.  #of times visited is radius,
 
 #set a fixed light at the top, and make a frame that will rotate objects without affecting the light.
 #consider the vpython4 attenuation attribute of a light source and consider that it is a factor of the scaling relationship between the light source and the objects.
@@ -36,9 +38,10 @@ import random         #from the Python standard library
 from network import * #pangaia module
 
 ###Rule of Thumb #1:  Put the most arbitrary values at the top of the code.  Let users tweak.
-num_nodes = 100                   #number of nodes to draw
+starting_number = 100             #number of initial nodes to make
+num_nodes = 0                     #actual number drawn
 p_nodes_lit = 0.05                #light x% of the nodes, chosen randomly.  Try 0, and clicking to add a light source: real-time 3-d light projection.
-want_labels = True                #turn off for only spheres
+want_labels = False                #turn off for only spheres
 
 ###Rule of Thumb #2:  Variable casing should be dynamic -- if variable is a part of a larger whole, use lower_case, otherwise CamelCase.
 UserNodeName = "Neophyte"  #This will be your personal Node name as seen from the view of the social garden
@@ -56,7 +59,7 @@ scene.material = materials.diffuse #sets default material when none specified, a
 #scene.stereo="redcyan"            #gives nice depth effect if you have red/cyan glasses, ultimately plan is to use built-in camera if availble
 
 mean_node_radius = 20           #This should start 0 or 1 and is akin to mass.
-world_radius =  int(mean_node_radius*num_nodes/8)    #XXX this isn't the right equation   #this sets the default "size" of the world, a cubic, cartesian volume determined by the number of nodes.  All vector ops reference this coordinate space. A function of num_nodes, as radius=1 places a known lower bound. VPython caluculates a "bounded box" that will contain everything in the scene.
+world_radius =  int(mean_node_radius*starting_number/8)    #XXX this isn't the right equation   #this sets the default "size" of the world, a cubic, cartesian volume determined by the number of nodes.  All vector ops reference this coordinate space. A function of num_nodes, as radius=1 places a known lower bound. VPython caluculates a "bounded box" that will contain everything in the scene.
 base_color = color.green           #nodes start in the middle of the rainbow
 base_opacity = 0.98                #A function of how much trust there is in the network.  Lower values ==> greater trust
 
@@ -98,7 +101,7 @@ def gnode(frame, name, pos, mass=mean_node_radius, valence=base_color, lit=False
         hsvcolor[2] *= 0.3 #reducing lightness
     valence = color.hsv_to_rgb(hsvcolor)
     obj = sphere(frame=frame, pos=pos, color=valence, opacity=base_opacity, radius=mass, material=materials.emissive if lit else scene.material, **kwargs) #inner sphere  (Note: try material=chrome)
-    sphere(frame=frame, pos=pos, color=atmos(valence), opacity=0.2*base_opacity, radius=mass+noosphere, material=materials.glass if lit else materials.emissive, **kwargs) #outer sphere, color should be converted to hsv and value amplified assuming ambient color is shade of pure white
+    sphere(frame=frame, pos=pos, color=atmos(valence), opacity=0.15*base_opacity, radius=mass+noosphere, material=materials.glass if lit else materials.emissive, **kwargs) #outer sphere, color should be converted to hsv and value amplified assuming ambient color is shade of pure white
     return obj
 
 
@@ -106,7 +109,7 @@ def link():
     pass
 ###################################################################
 
-n = Network()  #change this to use Network rather than Graph.
+n = Network() 
 d = dict()
 f = frame()    #window frame that will hold all the objects
 
@@ -117,7 +120,7 @@ f = frame()    #window frame that will hold all the objects
 
 ##cities={"Denver","Seattle","Portland","Boise","Fargo","LosAngeles"}
 ##The actual drawing of nodes here
-for i in range(num_nodes):
+for i in range(starting_number):
     light = (random.random() > 1 - p_nodes_lit)
     name = default_name + str(i)
     
@@ -125,15 +128,17 @@ for i in range(num_nodes):
         print "lit", name
 
     radius = random.randint(1,mean_node_radius)
-    d[name]= gnode (f, name, rand3tuple(), radius, base_color, light, mean_node_radius) # random.randint(radius, radius+1))
+    d[name]= gnode(f, name, rand3tuple(), radius, base_color, light, mean_node_radius) # random.randint(radius, radius+1))
 
 
 scene.autoscale=False
 
-### Rotation should be tried...
-##for i in arange(1,360,0.1):
-##    rate(100)
-##    f.rotate(angle=pi/3600, axis=(0,0,1))
+def bump():
+    """Rotate to cue depth."""
+    f.rotate(angle= -pi/36, axis=(0,1,0))
+    for i in arange(1,10,0.1):
+        rate(1000)
+        f.rotate(angle=pi/3600, axis=(0,1,0))
 
 ### Experiment in edge drawing
 ##nodes = scene.objects[:]
@@ -146,22 +151,34 @@ scene.autoscale=False
 #Ideally:
 #1. hover should show node name
 #2 left-click for 1/2 second prompt to create node.
+last_obj = 987654321 #XXXrandom
 while True:
     rate(100)  #sets an upper-bound on how often the loop runs.
     #f=scene.forward
     #print(scene.forward)
-    if scene.mouse.events:
-        mm=scene.mouse.getevent()
-        scene.mouse.getclick()  #XXX this seems redundant]  assume it's a click, remove from "buffer" (
+    if scene.mouse.pick != last_obj:
+        last_obj = scene.mouse.pick
+        if last_obj: #is not None
+            last_obj_color=last_obj.color
+            last_obj.color=color.white
+        #else:
+        #    last_obj.color=last_obj_color
 
-        if mm.pick==None: #create new sphere XXX just testing
-            d["light"] = gnode(f, "light", pos=mm.pos+(0,0,random.randint(-world_radius, +world_radius)), lit=True) #z axis not determinable with 2-d mouse position
-        else:
-            print mm.pick, mm.pick.radius
-            if mm.shift:  #XXX this is crude need to send this to node object so it both spheres get adjusted
-                mm.pick.radius -= 1
+    if scene.mouse.events:  #check queue
+        mm=scene.mouse.getevent()
+        if mm.click:  #TThis seems necessary to prevent registering both a press and release event
+            if mm.shift: bump()
             else:
-                mm.pick.radius += 1
+                if mm.pick==None: #create new sphere XXX just testing
+                    num_nodes += 1
+                    name = "light" + str(num_nodes)  #XXX easy bug: boundary
+                    d[name] = gnode(f, name, pos=mm.pos+(0,0,random.randint(-world_radius, +world_radius)), lit=True) #z axis not determinable with 2-d mouse position
+                else:
+                    print mm.pick, mm.button, mm.pick.radius
+                    if mm.shift:  #XXX this is crude need to send this to node object so it both spheres get adjusted
+                        mm.pick.radius -= 1
+                    else:
+                        mm.pick.radius += 1
     if scene.kb.keys:
         key=scene.kb.getkey()
         if key=="q":

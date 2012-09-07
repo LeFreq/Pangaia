@@ -12,17 +12,18 @@ information and value, giving fair credit to each contributor, solving
 once and for all the problem of compensation and piracy without stifling 
 innovation.  It will be AWESOME!
 
-Believe it or not, although there's only half-dozen files and the 
-project is non-functional, it's still nearly 90% there to a working 
-prototype.  Need only to set the relationships from the flow network 
-to their visual representations, and get the mouse events programmed 
-in.  See the source file(s) for TODO list(s).
+Believe it or not, although there's only half-dozen files, the pangaia 
+project represents a *capstone* to a large body of effort.  It's nearly 
+90% there to a working prototype.  What remains is seting the 
+relationships from the flow network to their visual representations, 
+and geting the mouse events programmed.  See the source file(s) for 
+TODO list(s).
 
 The basic demo(.py) is easy to zoom around in and get a sense of 
 the 3-d environment.  See the INSTALL file to get it up and 
 running!  
 
-And see the Pangaia Paper at <http://ow.ly/9KJVn> for how it all 
+And see the working paper at <http://ow.ly/9KJVn> for how it all 
 fits it in a grand scheme to create a beautiful world.  
 
 Your ideas and contributions are encouraged and most welcome!  

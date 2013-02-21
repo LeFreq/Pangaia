@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # Copyright 2010 Mark Janssen
-# This file is part of PanGaia and licensed under the GNU General Public License v3 found at <http://www.gnu.org/licenses>
+# This file is licensed under a Berkeley license.
 # email: dreamingforward@gmail.com
 
 """Network class for flow networks."""

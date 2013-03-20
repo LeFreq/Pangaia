@@ -15,8 +15,8 @@ innovation.  It will be AWESOME!
 Believe it or not, although there's only half-dozen files, the pangaia 
 project represents a capstone to a large body of effort.  It's nearly 
 90% there to a working prototype.  What remains is setting the 
-relationships from the flow network to their visual representations, 
-and zgetting the mouse events programmed.  See the source file(s) for 
+relationships from the data network to their visual representations, 
+and getting the mouse events programmed.  See the source file(s) for 
 TODO list(s).
 
 The basic demo(.py) is easy to zoom around in and get a sense of 

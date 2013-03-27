@@ -6,7 +6,7 @@
 #Ideally would have ABCs "compound" type with a default value when no second parameter.
 
 """
-A module defining a fractal (multi-level) dictionary type.
+A module defining a fractal (recursive) dictionary type.
 
 The purpose of this module is to implement the unifed information model of the pangaia project 
 and hopefully contribute to an ideal of Python 3000.

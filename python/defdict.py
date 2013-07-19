@@ -1,7 +1,5 @@
-#!/usr/bin/env python
-# Copyright 2010 Mark Janssen               
+#!/usr/bin/env python             
 # This file is part of PanGaia and licensed under the GNU General Public License v3 found at <http://www.gnu.org/licenses>
-# email: dreamingforward@gmail.com
 
 """Dictionary with default values, collision function, and sorted string output."""
 

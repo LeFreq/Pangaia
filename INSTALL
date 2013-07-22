@@ -3,8 +3,8 @@ To run the (very) basic demo:
 Get VPython (free) at http://vpython.org.  The pangaia project uses 
 python v2.7 so don't get the version for PythonV3.
 
-Start VIDLE (included in the vpython) and then open the demo.py file 
-located in Social-Garden's python directory.
+Start VIDLE (included in the vpython) within the social-garden directory
+and then open the demo.py file located there.
 
 Then Run -> Run Module.  You can zoom (Alt-Left mouse) and rotate 
 (right-mouse).  Try it to get the full effect.  Left-click affects 

@@ -134,7 +134,7 @@ class IntegerBag(dict):
         >>> sub.size, b.size
         (4, 2)
         """
-        l = list(self.itereach())
+        l = list(self.itereach())  #crude algorithm and won't necessarily scale well with large Bags.
         picked = IntegerBag(random.sample(l, min(abs(count), len(l))))
         if count < 0:  picked *= (-1)  #this probably not useful except for Network class
         if remove: self -= picked

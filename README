@@ -1,38 +1,38 @@
 Hello!  This is a software project to create Internet II:  a unified
-content-addressed network to replace the DNS-addressed network. It's 
-aim is to address PIPA/SOPA along with the spiritual and economic woes 
-of the Intellectual and Creative Classes. Currently in pre-alpha and 
-awaiting more code, but a simple concept demo of a 3-d web is 
-available. See the wiki for more specs and throw out the stale geo- 
-and server-centric web!
+content-addressed network to replace the legacy DNS-addressed network. It 
+will address all the issues of PIPA/SOPA along with the spiritual and 
+economic woes of the Intellectual and Creative Classes. Currently in 
+pre-alpha and awaiting more code, but a simple concept demo of a 3-d web 
+is available. See the wiki for more specs and throw out the old, balkanized
+Web!
 
-Its aim is high: a maximally collaborative (P2P), minimally 
-superfluous, 3-dimensional, voting and currency infrastucture for 
-sharing/organizing content to create a unified, fractal economy of 
-information and value, giving fair credit to each contributor, solving 
-once and for all the problem of compensation and piracy without stifling 
-innovation.  It will be AWESOME!
+Its aim is high: to implement Hermann Hesse's "Glass Bead Game" and usher
+in a new age of wise governance through the use of a reputation model and
+a maximally collaborative (P2P) "Society of Mind" that will sharing and organize 
+content.   As a self-organizing system, it will create a beautiful economy of 
+knowledge and value, giving fair-credit to each contributor, solving once and 
+for all the issues of democracy and global economics.  It will be AWESOME!
 
 Believe it or not, although there's only half-dozen files, the pangaia 
 project represents a capstone to a large body of effort.  It's nearly 
-90% there to a working prototype.  Now we just need to set the 
-relationships from the data network to their visual representations 
-and map the mouse events.  (See source files for TODO lists.)
+90% there to a working prototype (50% if I can't get the physics right).  
+Now we just need to set the relationships from the data network to their 
+visual representations and map the mouse events.  (See source files for 
+TODO lists.)
 
-The basic demo(.py) is easy to zoom around in and get a sense of 
-the 3-d environment.  See the INSTALL file to get it up and 
-running!  
+The basic demo(.py) is easy to zoom around in and get a sense of the 3-d 
+environment.  See the INSTALL file to get it up and running!  
 
-And see the working paper at <http://ow.ly/9KJVn> for how it all 
-fits it in a grand scheme to create a beautiful world.  
+And see the working paper at <http://ow.ly/9KJVn> for how it all fits it 
+into a comprehensive plan to fix the toughest problems in the world.  
 
-Your ideas and contributions are encouraged and most welcome!  
-Thanks for your interest.  
+Your ideas and contributions are encouraged and most welcome!  Thanks for 
+your interest.  
 
 Please check the wiki for documentation.
 
 This Software is licensed under the GNU GPL3.  If you extend the code,
-please post commits back to the source (github.org/Social-Garden).
+please post commits back to the source (github.org/SocietyOfMind).
 
 Cheers!
 

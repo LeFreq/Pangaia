@@ -1,14 +1,19 @@
 To run the (very) basic demo:
 
 Get VPython (free) at http://vpython.org.  The pangaia project uses 
-python v2.7 so don't get the version for PythonV3.
+python v2.7 so don't get the version for PythonV3.  Python is already
+included with VPython.
 
-Start VIDLE (included in the vpython) within the social-garden directory
-and then open the demo.py file located there.
+Enter the SocietyOfMind directory and start VIDLE.  In VIDLE, select File
+and Open the file demo.py located in the SocietyOfMind directory.
 
-Then Run -> Run Module.  You can zoom (Alt-Left mouse) and rotate 
-(right-mouse).  Try it to get the full effect.  Left-click affects 
-radius on existing node otherwise creates a new light source.
+You should see the source code of demo.py.  Hit F5 or Run -> Run Module.  
+A screen of random nodes should show up on the screen.  Click on a dark area
+to add a light source which should light up the scene more.  Zoom (Alt-Left mouse) 
+and rotate (right-mouse) around to get the full effect.
+
+Various parameters at the top of the source code can be changed to play
+around.
 
 Feedback to dreamingforward@gmail.com.  Thanks!!
 

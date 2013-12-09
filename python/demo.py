@@ -60,7 +60,7 @@ scene.material = materials.diffuse #sets default material when none specified, a
 
 mean_node_radius = 20           #This should start 0 or 1 and is akin to mass.
 world_radius =  int(mean_node_radius*starting_number/8)    #XXX this isn't the right equation   #this sets the default "size" of the world, a cubic, cartesian volume determined by the number of nodes.  All vector ops reference this coordinate space. A function of num_nodes, as radius=1 places a known lower bound. VPython caluculates a "bounded box" that will contain everything in the scene.
-base_color = color.green           #nodes start in the middle of the rainbow
+base_color = color.cyan            #arbitrary color, but nodes that are related should be color-related too
 base_opacity = 0.98                #A function of how much trust there is in the network.  Lower values ==> greater trust
 
 ##The view in the blank window will depend on whether you're in your own Node (the "polar coordinate view) or viewing from outside it (the "cartesian veiw").

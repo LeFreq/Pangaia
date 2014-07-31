@@ -8,17 +8,16 @@ Web!
 
 Its aim is high: to implement Hermann Hesse's "Glass Bead Game" and usher
 in a new age of wise governance through the use of a reputation model and
-a maximally collaborative (P2P) "Society of Mind"* that will organize all 
+a maximally collaborative peer-2-peer network that will organize all 
 content.   As a self-organizing system, it will create a beautiful economy of 
 knowledge and value, giving fair-credit to each contributor, solving once and 
 for all the issues of democracy and global economics.  It will be AWESOME!
 
 Believe it or not, although there's only half-dozen files, the pangaia 
 project represents a capstone to a large body of effort.  It's nearly 
-90% there to a working prototype (50% if I can't get the physics right).  
-Now we just need to set the relationships from the data network to their 
-visual representations and map the mouse events.  (See source files for 
-TODO lists.)
+90% there to a working prototype. Now we just need to set the relationships 
+from the data network to their visual representations and map the mouse 
+events.  (See source files for TODO lists.)
 
 The basic demo(.py) is easy to zoom around in and get a sense of the 3-d 
 environment.  See the INSTALL file to get it up and running!  
@@ -32,12 +31,10 @@ your interest.
 Please check the wiki for documentation.
 
 This Software is licensed under the GNU GPL3.  If you extend the code,
-please post commits back to the source (github.org/SocietyOfMind).
+please post commits back to the source (github.org/GlassBeadGame).
 
 Cheers!
 
 Mark Janssen
 dreamingforward@gmail.com
 pangaia.sourceforge.net
-
-* Nods to Marvin Minsky (MIT) who wrote the book "Society of Mind".

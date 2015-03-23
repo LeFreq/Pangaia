@@ -26,12 +26,12 @@ NumberType = (int, float, long, complex) #for WVertex validation
 #should all non-verb methods (sum_in, in_degree, etc.) be properties??
 
 
-class VertexCommon(VertexBaseType):
+class vertex_common(VertexBaseType):
     """Various common vertex methods."""
     #Add id property to determine id, given Vertex
     #XXX should clear() also remove in_vertices()?
 
-    __slots__ = ['_graph', '_id']  #functioning as a sort of "variable declaration" list
+    __slots__ = ['_graph', '_id']  #functioning as a sort of "variable declaration" list, can remove safely.
 
     EDGEVALUE = 1
 
@@ -40,7 +40,7 @@ class VertexCommon(VertexBaseType):
         Will add tails in init as necessary."""
         self._graph = graph  #graph to which this vertex belongs
         self._id = id
-        super(VertexCommon, self).__init__()
+        super(vertex_common, self).__init__()
         self.update(init)
 
     def update(self, tails, edge_value=EDGEVALUE): #XXX limit tails to list or dict?
@@ -127,7 +127,7 @@ class VertexCommon(VertexBaseType):
         >>> print g
         {1: {2: 1, 3: 1}, 2: {}, 3: {}}
         """
-        super(VertexCommon, self).__setitem__(tail, value)
+        super(vertex_common, self).__setitem__(tail, value)
         if tail not in self._graph and tail!=self._id: #XXX ?do this first to preserve invariants in case vertex addition fails
             self._graph.add(tail)
 
@@ -169,20 +169,20 @@ class VertexCommon(VertexBaseType):
             assert t in self._graph, "Non-existant tail %r in vertex %r" % (t, self._id)
 
 
-class ReverseEdgeMixin(object): #could be used to make undirected graph?
-    """Mixin to allow O(1) access to in_vertices.  Inherit instead of or before VertexCommon."""
+class reverse_edge_mixin(object): #could be used to make undirected graph?
+    """Mixin to allow O(1) access to in_vertices.  Inherit instead of or before vertex_common."""
     #XXX need doctests, also investigate slots issue (multiple bases have instance layout conflict)
 
     __slots__ = []
 
     def __init__(self, *args):
         self.reverse = dict() #ReverseType()?
-        super(ReverseEdgeMixin, self).__init__(*args)
+        super(reverse_edge_mixin, self).__init__(*args)
 
     def in_vertices(self):
         """Return iterator over the vertices that point to self.
 
-        >>> class myvertex(ReverseEdgeMixin, Vertex):
+        >>> class myvertex(reverse_edge_mixin, Vertex):
         ...    pass
         >>> g = Graph(VertexType=myvertex)
         >>> g[1].add([2, 3, 4])
@@ -199,7 +199,7 @@ class ReverseEdgeMixin(object): #could be used to make undirected graph?
     def in_degree(self):
         """Return number of edges pointing into vertex.
 
-        >>> class myvertex(ReverseEdgeMixin, Vertex):
+        >>> class myvertex(reverse_edge_mixin, Vertex):
         ...    pass
         >>> g = Graph(VertexType=myvertex)
         >>> g[1].add([2, 3, 4])
@@ -216,7 +216,7 @@ class ReverseEdgeMixin(object): #could be used to make undirected graph?
     def sum_in(self):
         """Return sum of all edges that point to vertex.
 
-        >>> class myvertex(ReverseEdgeMixin, WVertex):
+        >>> class myvertex(reverse_edge_mixin, WVertex):
         ...    pass
         >>> g = Graph(VertexType=myvertex)
         >>> g[1].add([1, 2, 3])
@@ -229,7 +229,7 @@ class ReverseEdgeMixin(object): #could be used to make undirected graph?
     def __setitem__(self, tail, value):
         """Set edge capacity.  Will also update other vertex.reverse.
 
-        >>> class myvertex(ReverseEdgeMixin, WVertex):
+        >>> class myvertex(reverse_edge_mixin, WVertex):
         ...    pass
         >>> g = Graph(VertexType=myvertex)
         >>> g[1][2] = 3
@@ -237,7 +237,7 @@ class ReverseEdgeMixin(object): #could be used to make undirected graph?
         ({2: 3}, {1: 3})
         """
         #print tail, value
-        super(ReverseEdgeMixin, self).__setitem__(tail, value)
+        super(reverse_edge_mixin, self).__setitem__(tail, value)
         value = self[tail] #value may have been modified by other classes
         if tail != self._id:  #creates tail vertex so check value first
             self._graph[tail].reverse[self._id] = value
@@ -248,7 +248,7 @@ class ReverseEdgeMixin(object): #could be used to make undirected graph?
     def __delitem__(self, tail):
         """Removes tail from self and self._id from tail.reverse.
 
-        >>> class myvertex(ReverseEdgeMixin, WVertex):
+        >>> class myvertex(reverse_edge_mixin, WVertex):
         ...    pass
         >>> g = Graph(VertexType=myvertex)
         >>> g[1][2] = 3
@@ -260,12 +260,12 @@ class ReverseEdgeMixin(object): #could be used to make undirected graph?
         """
         if tail in self._graph:
             del self._graph[tail].reverse[self._id]  #creates tail vertex so check if tail in graph first
-        super(ReverseEdgeMixin, self).__delitem__(tail)
+        super(reverse_edge_mixin, self).__delitem__(tail)
 
     def clear(self): #XXX should this clear self.reverse also?
         """Removes all tails from self and all references to self._id in tail.reverse
 
-        >>> class myvertex(ReverseEdgeMixin, Vertex):
+        >>> class myvertex(reverse_edge_mixin, Vertex):
         ...    pass
         >>> g = Graph({1: {1: 1, 2: 4, 3: 9}, 2: {3: 8}}, myvertex)
         >>> g[1].clear()
@@ -275,15 +275,15 @@ class ReverseEdgeMixin(object): #could be used to make undirected graph?
         g, vid = self._graph, self._id
         for tail in self:
             del g[tail].reverse[vid]
-        super(ReverseEdgeMixin, self).clear()
+        super(reverse_edge_mixin, self).clear()
 
     def _validate(self):
-        super(ReverseEdgeMixin, self)._validate()
+        super(reverse_edge_mixin, self)._validate()
         for tail in self:
             assert self._graph[tail].reverse[self._id] == self[tail]
 
 
-class WVertex(VertexCommon):
+class WVertex(vertex_common):
     """WVertex has directed, weighted edges."""
 
     __slots__ = []
@@ -320,7 +320,7 @@ class WVertex(VertexCommon):
             assert isinstance(weight, NumberType)
 
 
-class Vertex(VertexCommon):
+class Vertex(vertex_common):
     """Vertex has directed, unweighted, edges."""
 
     __slots__ = []
@@ -353,7 +353,7 @@ class Vertex(VertexCommon):
         return '{%s}' % ', '.join(map(repr, keys))
 
 
-def MERGE_VERTEX(g, h, vert): g[h].update(vert)
+def _merge_(g, h, vert): g[h].update(vert)
 
 class Graph(GraphBaseType):
     """Basic graph class.  Graph features (directed, weighted, self-referencing, etc) determined by VertexType."""
@@ -379,9 +379,9 @@ class Graph(GraphBaseType):
         {1: {2, 3}, 2: {2, 3}, 3: {2, 3}}
         """
         self.VertexType = VertexType
-        super(Graph, self).__init__(init, {}, MERGE_VERTEX)
+        super(Graph, self).__init__(init, {}, _merge_)
 
-    def update(self, other, default=USE_DEFAULT, collision=MERGE_VERTEX): #XXX could remove this if collision was attribute of defdict
+    def update(self, other, default=USE_DEFAULT, collision=_merge_): #XXX could remove this if collision was attribute of defdict
         """Merges one graph with another.  All vertices will be convertex to VertexType.  Takes union of edge lists.
         >>> g1, g2 = Graph(VertexType=Vertex), Graph(VertexType=WVertex)
         >>> g1.add(1, [1, 2])
@@ -394,7 +394,7 @@ class Graph(GraphBaseType):
         """
         super(Graph, self).update(other, default, collision)
 
-    def add(self, head, tail=[], edge_value=VertexCommon.EDGEVALUE):
+    def add(self, head, tail=[], edge_value=vertex_common.EDGEVALUE):
         """Add the vertices and/or edges.
         Parameters can be single vertex or list of vertices.
         If no second parameter given, assume vertex addition only.

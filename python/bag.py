@@ -6,9 +6,12 @@
  
 """Bag types:  a set-like container that counts the number of same items held within it."""
 
+# Note: that I implement the more general data structure first, and then specialize it into conformance with the definition from Computer Science.
+
 #XXX consider replacing this module with the collections.Counter type in the Python standard library.
 #bag should have list interface? --should add list methods: append, remove, min/max,  __str__ return list string, etc.
 #   in addition to min/max(), perhaps create most/least() to return the item with the highest/lowest count
+# Ultimately, interface should conform to OOPv2.
 #XXX checking in setitem takes too much time: create compress function that removes zero-valued items periodically or on methods which rely on non-zero values: __contains__, iter, str, etc.
 #create bag attribute to hold size of bag and re-calculate only when bag has been written to.
 #XXX .size() should probably be converted to a property.
@@ -18,6 +21,7 @@
 # OR perhaps set __setitem__ to a class static variable, initially set to None, but then set appropriately in the __init__()
 # this way bag could just be a special type of defdict (which would use this "staticmethod" to set value to default if none specified.
 # Actually, I think letting __init__ take a filter function (instead of defining method in class explicitly) which also returns the "zero" value when called with empty argument list, returning the currect type for __getitem__, for example (e.g. if filter=list, then getitem returns a NEW, empty list, if filter=int, returns 0, etc.)
+
 
 import random  #pick()
 
@@ -437,8 +441,7 @@ def _test():
     >>> bool(b)
     True
     """
-    import doctest
-    return doctest.testmod()
 
 if __name__ == "__main__":
-    _test()
+    import doctest
+    print doctest.testmod()

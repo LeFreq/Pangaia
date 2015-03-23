@@ -647,8 +647,7 @@ def _test():
     >>> g[5][7]
     1
     """
-    import doctest
-    return doctest.testmod() #, isprivate=lambda *args: 0)
-
+ 
 if __name__ == '__main__':
-    _test()
+    import doctest
+    print doctest.testmod() #, isprivate=lambda *args: 0)

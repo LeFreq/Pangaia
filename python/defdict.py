@@ -1,5 +1,6 @@
 #!/usr/bin/env python             
-# This file is part of PanGaia and licensed under the GNU General Public License v3 found at <http://www.gnu.org/licenses>
+# This file is part of PanGaia and licensed under the GNU General Public License found at <http://www.gnu.org/licenses>
+# email:  Mark Janssen <dreamingforward@gmail.com>
 
 """Dictionary with default values, collision function, and sorted string output."""
 
@@ -7,30 +8,29 @@ import exceptions
 import copy
 
 class KeyAlreadyExists(exceptions.LookupError): pass
-class USE_DEFAULT:
+class _use_default_:
     """Dummy class used as value in function parameters to indicate
-    no default value specified; i.e. use the value in defdict.default.
+    no default value specified; i.e. use the value in DefDict._default.
     Created special class to avoid clashing with possible value passed
     by user."""
 #XXX perhaps should have instantiate default which takes arbitrary
-# number of parameters that will be passed to value stored in defdict.default
-# to allow object creation.  defdict.add would check if isinstance(default, USE_DEFAULT)
+# number of parameters that will be passed to value stored in DefDict._default
+# to allow object creation.  DefDict.add would check if isinstance(default, _use_default_)
 
 #define some useful collision functions
 #May wish to return an expression instead of setting ddict directly
 #  to allow lambda functions to be passed as collision functions.
 #  may sacrifice speed for cases when value modified in place or when old value lookup not needed.
-OVERWRITE = None   #will use standard dict overwrite semantics
-def RETAIN(ddict, key, new_value): pass  #do nothing to the value
-def RAISE(ddict, key, new_value): raise KeyAlreadyExists, repr(key)
-def ADD(ddict, key, new_value): ddict[key] += new_value
-def MAX(ddict, key, new_value): ddict[key] = max(ddict[key], new_value)
-def MIN(ddict, key, new_value): ddict[key] = min(ddict[key], new_value)
-def OUTPUT_KEY(ddict, key, new_value): print key
+_OVERWRITE_ = None   #i.e. will use standard dict overwrite semantics
+def _RETAIN_(ddict, key, new_value): pass  #do nothing to the value
+def _RAISE_(ddict, key, new_value): raise KeyAlreadyExists, repr(key)
+def _ADD_(ddict, key, new_value): ddict[key] += new_value
+def _MAX_(ddict, key, new_value): ddict[key] = max(ddict[key], new_value)
+def _MIN_(ddict, key, new_value): ddict[key] = min(ddict[key], new_value)
+def _OUTPUT_KEY_(ddict, key, new_value): print key   #should probably send to stderr
 
-DEFAULT_VALUE = None
 
-class defdict(dict):
+class DefDict(dict):
     """Extends standard dictionary type by allowing user to
     specify a default value when a key is inserted.
     A 'collision' function can be provided to specify what should
@@ -41,20 +41,21 @@ class defdict(dict):
     """
     #XXX may wish to have collision method instead of constantly passing as parameter
 
-    __slots__ = ['default']
+    __slots__ = ['_default']
 
-    def __init__(self, init={}, default=DEFAULT_VALUE, collision=OVERWRITE):
+    def __init__(self, init={}, default=None, collision=_OVERWRITE_):
         """Create dictionary and initialize with mapping or list of (key, value) pairs, if given.
+        Sets a default value for the keys when no other specified.
 
         Initialization interface similar to standard dictionary:
-        >>> dd = defdict()  #create empty defdict
+        >>> dd = DefDict()  #create empty DefDict
         >>> print dd
         {}
-        >>> print defdict({1: 1, 2: 4, 3: 9}) #initialize with dict type
+        >>> print DefDict({1: 1, 2: 4, 3: 9}) #initialize with dict type
         {1: 1, 2: 4, 3: 9}
 
         Initialize with list of (key, value) pairs:
-        >>> print defdict([('a', 2), ('b', 3), ('c', 1), ('a', 5)], collision=ADD)
+        >>> print DefDict([('a', 2), ('b', 3), ('c', 1), ('a', 5)], collision=_ADD_)
         {'a': 7, 'b': 3, 'c': 1}
 
         A sequence of (key, value) pairs may contain duplicate keys, like above.
@@ -65,18 +66,18 @@ class defdict(dict):
 
         This module defines a few useful collision functions:
 
-        OVERWRITE:  the default--standard dictionary semantics;
+        _OVERWRITE_:  the default--standard dictionary semantics;
             i.e. if key already exists, new value overwrites existing
             key value.
-        RETAIN:  value remains unchanged if key already exists.
-        RAISE_EXCEPTION:  raise 'KeyAlreadyExists' exception if key already
+        _RETAIN_:  value remains unchanged if key already exists.
+        _RAISE_EXCEPTION_:  raise 'KeyAlreadyExists' exception if key already
             exists.  Value remains unchanged.
-        ADD:  sets value to existing value + new value
-        MAX:  sets to greater of old, new values
-        MIN:  sets to lesser of old, new values
+        _ADD_:  sets value to existing value + new value
+        _MAX_:  sets to greater of old, new values
+        _MIN_:  sets to lesser of old, new values
         """
 
-        self.default = default
+        self._default = default
         dict.__init__(self)
         if isinstance(init, dict): #don't use dict(init) since derives classes have special setitem behavior
             init = init.iteritems()
@@ -84,28 +85,23 @@ class defdict(dict):
         for key, value in init:
             self.setdefault(key, value, collision)
 
-    def fromkeys(cls, iterable, default=DEFAULT_VALUE, collision=OVERWRITE):
+    def fromkeys(cls, iterable, default=None, collision=_OVERWRITE_):
         """Create dictionary from iterable with optional default value.
 
         One can initialize defdict with a sequence of keys.
         The dictionary values of the keys will be determined by the default value,
         if given, otherwise defaults to None.
 
-        >>> print defdict.fromkeys(["apple", "banana", "carrot"])
+        >>> print DefDict.fromkeys(["apple", "banana", "carrot"])
         {'apple': None, 'banana': None, 'carrot': None}
-        >>> dd = defdict.fromkeys(range(4), 0)   #initialize with values = 0
+        >>> dd = DefDict.fromkeys(range(4), 0)   #initialize with values = 0
         >>> print dd
         {0: 0, 1: 0, 2: 0, 3: 0}
-        >>> print defdict.fromkeys("abacab", 1, ADD)
+        >>> dd.update([0])  #default value retained?
+        >>> print dd[0]     #Yes if output is 1
+        1
+        >>> print DefDict.fromkeys("abacab", 1, _ADD_)
         {'a': 3, 'b': 2, 'c': 1}
-
-        The defdict's default value can be modified by writing to
-        its .default attribute.
-
-        >>> dd.default = 5        #change dd's default value
-        >>> dd.update([2, 3, 4])  #default will be used since no value specified
-        >>> print dd
-        {0: 0, 1: 0, 2: 5, 3: 5, 4: 5}
         """
         dd = cls(default=default)
         for key in iterable:
@@ -114,10 +110,10 @@ class defdict(dict):
 
     fromkeys = classmethod(fromkeys)
 
-    def update(self, other, default=USE_DEFAULT, collision=OVERWRITE):
-        """Updates defdict from mapping type or iterable using default value and optional collision function.
+    def update(self, other, collision=_OVERWRITE_):
+        """Updates defdict from mapping type or iterable with optional collision function.
 
-        >>> d = defdict.fromkeys('ab', 1)
+        >>> d = DefDict.fromkeys('ab', 1)
         >>> d.update({'a': 0, 'c': 2})
         >>> print d
         {'a': 0, 'b': 1, 'c': 2}
@@ -127,19 +123,21 @@ class defdict(dict):
         OVERWRITE semantics.  This behavior can be modified by passing a
         collision function.
 
-        >>> d.update({'b': 3, 'd': 9}, collision=ADD)
+        >>> d.update({'b': 3, 'd': 9}, _ADD_)
         >>> print d
         {'a': 0, 'b': 4, 'c': 2, 'd': 9}
 
-        >>> d.update(['b','c'], 5)  #use 5 as the value for the keys
+        >>> d._default = 5          #manually change default value
+        >>> d.update(['b','c'])     #update from non-dict
+        >>> d._default = 1          #set back to original
         >>> d.update('abd')         #string are iterated
         >>> print d
         {'a': 1, 'b': 1, 'c': 5, 'd': 1}
-        >>> d.update('de', collision=ADD)
+        >>> d.update('de', _ADD_)
         >>> print d
         {'a': 1, 'b': 1, 'c': 5, 'd': 2, 'e': 1}
 
-        NOTE:  If collision function raises an exception, defdict may be
+        NOTE:  If collision function raises an exception, DefDict may be
         left in partially-updated state.
         """
         #perhaps should catch any exceptions that may be caused by collision
@@ -148,14 +146,14 @@ class defdict(dict):
             for key, value in other.iteritems():
                 self.setdefault(key, value, collision)
         else:  #given iterable
-            for key in other:   #XXX slower than necessary since setdefault will check default each time and return unused value
-                self.setdefault(key, default, collision)
+            for key in other: 
+                self.setdefault(key, self._default, collision)
 
-    def setdefault(self, key, value = USE_DEFAULT, collision=RETAIN):
-        """Behaves like standard dict.setdefault, but uses value in
-        default attribute if no default parameter specified.
+    def setdefault(self, key, value = _use_default_, collision=_RETAIN_):
+        """Behaves like standard dict.setdefault, but uses value in _default attribute 
+        if no default parameter specified.
 
-        >>> dd = defdict(default=5)
+        >>> dd = DefDict(default=5)
         >>> dd.setdefault('a', 10), dd.setdefault('b'), dd.setdefault('b', 11)
         (10, 5, 5)
         >>> print dd
@@ -164,13 +162,13 @@ class defdict(dict):
         A collision function can also be passed to override setdefault's
         standard RETAIN semantics.
 
-        >>> dd.setdefault('a', collision=OVERWRITE), dd.setdefault('b', 6, ADD)
+        >>> dd.setdefault('a', collision=_OVERWRITE_), dd.setdefault('b', 6, _ADD_)
         (5, 11)
-        >>> dd.setdefault('b', 12, MAX), dd.setdefault('b', 10, MAX)
+        >>> dd.setdefault('b', 12, _MAX_), dd.setdefault('b', 10, _MAX_)
         (12, 12)
-        >>> dd.setdefault('c', 10, RAISE)
+        >>> dd.setdefault('c', 10, _RAISE_)
         10
-        >>> dd.setdefault('c', 10, RAISE)
+        >>> dd.setdefault('c', 10, _RAISE_)
         Traceback (most recent call last):
         KeyAlreadyExists: 'c'
         >>> print dd
@@ -180,7 +178,7 @@ class defdict(dict):
         If values must be distinct objects, then you must subclass and
         override this method or __setitem__() to create a copy of the default.
 
-        >>> dd = defdict(default=[])
+        >>> dd = DefDict(default=[])
         >>> dd.setdefault(1), dd.setdefault(2)
         ([], [])
         >>> dd[1] is dd[2]  #keys 1 and 2 do have distinct list objects
@@ -190,48 +188,48 @@ class defdict(dict):
         {1: [42], 2: [42]}
         """
         key_absent = key not in self   #fail immediately if key unhashable
-        if value == USE_DEFAULT: value = self.default #XXX should make copy for non-simple default, or rely on __setitem__() to make copy?
-        if collision == OVERWRITE or key_absent:
+        if value == _use_default_: value = self._default #XXX should make copy for non-simple default, or rely on __setitem__() to make copy?
+        if collision == _OVERWRITE_ or key_absent:
             self[key] = value #note: subclass may override setitem method so value may be modified
         else:
             collision(self, key, value)
         return dict.__getitem__(self, key)  #may wish to allow dd[key] to insert key in dd with default value
 
     def get(self, key, *args):
-        """Behaves like standard dict.get, but uses value in
-        default attribute if no default parameter specified.
+        """Behaves like standard dict.get, but uses value in _default attribute 
+        if no default parameter specified.
 
-        >>> dd = defdict({'a': 10}, 0)
+        >>> dd = DefDict({'a': 10}, 0)
         >>> dd.get('a'), dd.get('b'), dd.get('b', 11)
         (10, 0, 11)
         >>> print dd
         {'a': 10}
         """
-        if not args: args = (self.default,)
+        if not args: args = (self._default,)
         return dict.get(self, key, *args)
 
     def copy(self):
         """Return shallow copy of dictionary.
 
-        >>> dd = defdict.fromkeys(range(5), 5)
+        >>> dd = DefDict.fromkeys(range(5), 5)
         >>> ddcopy = dd.copy()
-        >>> print ddcopy.default, isinstance(ddcopy, defdict); print ddcopy
+        >>> print ddcopy._default, isinstance(ddcopy, DefDict); print ddcopy
         5 True
         {0: 5, 1: 5, 2: 5, 3: 5, 4: 5}
         >>> ddcopy[0] = 7
         >>> print dd[0], ddcopy[0]
         5 7
         """
-        return self.__class__(self, self.default)
+        return self.__class__(self, self._default)
 
     __copy__ = copy
 
     def __str__(self):
         """Convert self to string with keys in sorted order.
 
-        >>> str(defdict())
+        >>> str(DefDict())
         '{}'
-        >>> str(defdict({9: 0, 'test': 0, 'a': 0, 0: 0}))
+        >>> str(DefDict({9: 0, 'test': 0, 'a': 0, 0: 0}))
         "{0: 0, 9: 0, 'a': 0, 'test': 0}"
         """
         if not self: return '{}'    #nothing to sort
@@ -242,4 +240,4 @@ class defdict(dict):
 
 if __name__ == "__main__":
     import doctest
-    doctest.testmod()
+    print doctest.testmod()

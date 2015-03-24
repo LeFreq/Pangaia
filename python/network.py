@@ -3,7 +3,7 @@
 # This file is licensed under a Berkeley license.
 # email: dreamingforward@gmail.com
 
-"""Network class for flow networks."""
+"""Network class for flow networks.  An exploration for Digital Mechanics."""
 
 #Add Network.time to track how many ticks
 #Have Network.add(v), add +1 to v.energy, may need to split function for

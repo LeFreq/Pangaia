@@ -16,7 +16,7 @@ from defdict import *
 
 #EdgeBaseType = int
 VertexBaseType = dict
-GraphBaseType = defdict
+GraphBaseType = DefDict
 
 _DEBUG = True
 _PROFILE = True
@@ -381,7 +381,7 @@ class Graph(GraphBaseType):
         self.VertexType = VertexType
         super(Graph, self).__init__(init, {}, _merge_)
 
-    def update(self, other, default=USE_DEFAULT, collision=_merge_): #XXX could remove this if collision was attribute of defdict
+    def update(self, other, collision=_merge_): #XXX could remove this if collision was attribute of defdict
         """Merges one graph with another.  All vertices will be convertex to VertexType.  Takes union of edge lists.
         >>> g1, g2 = Graph(VertexType=Vertex), Graph(VertexType=WVertex)
         >>> g1.add(1, [1, 2])
@@ -392,7 +392,7 @@ class Graph(GraphBaseType):
         >>> g2.add(3, 5)  #changes to g2 should not affect g1
         >>> g1._validate()
         """
-        super(Graph, self).update(other, default, collision)
+        super(Graph, self).update(other, collision)
 
     def add(self, head, tail=[], edge_value=vertex_common.EDGEVALUE):
         """Add the vertices and/or edges.

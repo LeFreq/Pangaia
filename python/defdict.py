@@ -23,7 +23,7 @@ class _use_default_:
 #  may sacrifice speed for cases when value modified in place or when old value lookup not needed.
 _OVERWRITE_ = None   #i.e. will use standard dict overwrite semantics
 def _RETAIN_(ddict, key, new_value): pass  #do nothing to the value
-def _RAISE_(ddict, key, new_value): raise KeyAlreadyExists, repr(key)
+def _RAISE_(ddict, key, new_value): raise KeyAlreadyExists, str(key)
 def _ADD_(ddict, key, new_value): ddict[key] += new_value
 def _MAX_(ddict, key, new_value): ddict[key] = max(ddict[key], new_value)
 def _MIN_(ddict, key, new_value): ddict[key] = min(ddict[key], new_value)
@@ -41,7 +41,7 @@ class DefDict(dict):
     """
     #XXX may wish to have collision method instead of constantly passing as parameter
 
-    __slots__ = ['_default']
+    #__slots__ = ['_default']  this is probably a premature optimization.
 
     def __init__(self, init={}, default=None, collision=_OVERWRITE_):
         """Create dictionary and initialize with mapping or list of (key, value) pairs, if given.

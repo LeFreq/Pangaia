@@ -3,7 +3,7 @@
 # This file is part of PanGaia and licensed under the GNU General Public License v3 found at <http://www.gnu.org/licenses>
 # email: dreamingforward@gmail.com
 
-"""Graph class."""
+"""Graph class.  A container holding named vertex and edge relationships."""
 
 #change a lot of these for loops to use faster map() function (see FAQ and QuickReference)
 #also: map/reduce/filter now work with any iterable object (including dictionaries!)
@@ -11,11 +11,9 @@
 #implementation options:  { id: Vertex(id).{tail:Edge(tail)}}, {Vertex(id):kjSet(Edges)
 #  {id: vertex(id)}{id:{Edge(proxy(Vertex(tail)))}; g.add(vertex, VertType=BaseVert), etc..
 #XXX Use of exceptions for control flow may prevent seeing actual errors.  Perhaps catch exception, plus error string and assert string is as expected
+#need to remove __slots__ until after refactor towards standards in Zen Code (hackerspaces.org)
 
-from defdict import *
-
-#EdgeBaseType = int
-VertexBaseType = dict
+from defdict import *  #XXXfrom defdict import DefDict as GraphBaseType
 GraphBaseType = DefDict
 
 _DEBUG = True
@@ -26,7 +24,7 @@ NumberType = (int, float, long, complex) #for WVertex validation
 #should all non-verb methods (sum_in, in_degree, etc.) be properties??
 
 
-class vertex_common(VertexBaseType):
+class vertex_common(dict):
     """Various common vertex methods."""
     #Add id property to determine id, given Vertex
     #XXX should clear() also remove in_vertices()?
@@ -102,8 +100,8 @@ class vertex_common(VertexBaseType):
         """
         return len(list(self.in_vertices()))
 
-    out_vertices = VertexBaseType.iterkeys
-    out_degree = VertexBaseType.__len__
+    out_vertices = dict.iterkeys
+    out_degree = dict.__len__
 
     def __getitem__(self, tail):
         """Return edge value or False if tail non-existent.

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # Copyright 2010 Mark Janssen
-# This file is licensed under a Berkeley license.
+# This file is licensed under the GNU Public License.
 # email: dreamingforward@gmail.com
 
 """Network class for flow networks.  An exploration for Digital Mechanics."""

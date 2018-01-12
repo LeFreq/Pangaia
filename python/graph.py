@@ -46,7 +46,7 @@ class vertex_common(dict):
         #XXX Don't need to appease the gods of OOP, just rename this "add"
         if isinstance(tails, dict):
             for key, value in tails.iteritems(): #derived classes may override setitem so don't use dict.update
-                self[key] = value
+                self[key] = value  #what if value =0?  remove?  see note at setitem()
         else:  #given iterable
             for key in tails:
                 self[key] = edge_value
@@ -126,6 +126,7 @@ class vertex_common(dict):
         >>> print g
         {1: {2: 1, 3: 1}, 2: {}, 3: {}}
         """
+        #XXX consider if edge is set to 0, then remove edge (like for python reference counting)
         super(vertex_common, self).__setitem__(tail, value)
         if tail not in self._graph and tail!=self._id: #XXX ?do this first to preserve invariants in case vertex addition fails
             self._graph.add(tail)

@@ -359,10 +359,13 @@ class Graph(GraphBaseType):
     #Add label to __init__ to attach description to graph?
     #Perhaps make default vertex type WVertex and change doctests accordingly.
     #Graph.fromkeys() override?
+    #Consider refactoring init to take boolean "directed".  Vertex attributes can be added dynamically anyway
+    #  so that a vertex type passed isn't as important (once __slots__ is removed) 
+    #  cite: from (https://stackoverflow.com/questions/19472530/representing-graphs-data-structure-in-python#
 
-    __slots__ = ['VertexType']
+    __slots__ = ['VertexType']  #see note above, about using "directed" instead.
 
-    def __init__(self, init={}, VertexType=Vertex):
+    def __init__(self, init={}, VertexType=Vertex):  
         """Create the graph, optionally initializing from another graph.
         Optional VertexType parameter can be passed to specify default vertex type.
 

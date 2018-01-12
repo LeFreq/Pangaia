@@ -43,7 +43,7 @@ class vertex_common(dict):
 
     def update(self, tails, edge_value=EDGEVALUE): #XXX limit tails to list or dict?
         """Add tails in sequence or mapping type to Vertex."""
-        #Don't need to appease the gods of OOP, just rename this "add"
+        #XXX Don't need to appease the gods of OOP, just rename this "add"
         if isinstance(tails, dict):
             for key, value in tails.iteritems(): #derived classes may override setitem so don't use dict.update
                 self[key] = value

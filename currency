@@ -1,0 +1,13 @@
+The World Game creates a new currency that is deliberatly separate from the existing physical currency system.  Eventually, a cryptocurrency would be ideal for a software implementation (perhaps utilizing "smart" phones).
+
+There are three denominations of currency:
+
+* The "yes" coin -- the smallest unit of value
+* The "wow" unit -- a 10x the smallest unit
+* The "woah!" unit -- a 100x unit.
+
+Units stay in the system until they are transferred out by
+# giving to the governance nodes
+# 
+
+Conversion to and from physical currency should never occur except through a layer of indirection, to stay separate from the tax collection system.

@@ -2,7 +2,7 @@ The World Game creates a new currency that is deliberatly separate from the exis
 
 There are three denominations of currency:
 
-* The "yes" coin -- the smallest unit of value
+* The "yes" coin -- the smallest unit of +value
 * The "wow" unit -- a 10x the smallest unit
 * The "woah!" unit -- a 100x unit.
 

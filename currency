@@ -1,13 +1,22 @@
 The World Game creates a new currency that is deliberatly separate from the existing physical currency system.  Eventually, a cryptocurrency would be ideal for a software implementation (perhaps utilizing "smart" phones).
 
-There are three denominations of currency:
+Some basic rules-of-thumb:
+* a single vote up (or down possibly) -- 1 unit or World Coin
+* A single seed bomb (composed of seeds to transform rotted or empty landscapes) -- 5 units
+* A safe BASE jump and photo/a sleepable couch -- 50 units (unsafe BASE jump (or couch):  10 units)
+* A working app that does something non-trivial (regardless of licensing) -- 500 units (a GPL app: maybe 5000 units)
+* A new engine that is twice as efficient as on the market -- 5000 units.
 
-* The "yes" coin -- the smallest unit of +value
-* The "wow" unit -- a 10x the smallest unit
-* The "woah!" unit -- a 100x unit.
+Pangaia points can be converted into a "note" to make for easier handling.  There are three denominations of currency:
 
-Units stay in the system until they are transferred out by
+* The "yes" coin -- the smallest unit of +value -- the basic vote in the World Game
+* The "wow" note -- 10x the smallest unit
+* The "woah!" note -- at 100x unit.
+* The "*mindblown*" note -- at 1000x the unit.
+
+Units stay in the system until they are transferred out by:
 # giving to the governance nodes
-# 
+# losing them:  talk to the GM, it may be possible to retrieve
+#
 
-Conversion to and from physical currency should never occur except through a layer of indirection, to stay separate from the tax collection system.
+Conversion to and from physical currency should never occur, except through a layer of indirection, to stay separate from the tax collection system.  For example, you might get the World Game to get a couch for the space using World Coin, only to sell it in real space later for the legal tender.

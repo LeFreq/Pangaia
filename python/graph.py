@@ -2,6 +2,7 @@
 # Copyright 2010 Mark Janssen
 # This file is part of PanGaia and licensed under the GNU General Public License v3 found at <http://www.gnu.org/licenses>
 # email: dreamingforward@gmail.com
+# This file needs to be rewritten to conform to Zen Code and the GOOP.
 
 """Graph class.  A container holding named vertex and edge relationships."""
 

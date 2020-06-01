@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # Copyright 2010 Mark Janssen
 # This file is part of PanGaia and licensed under the GNU General Public License v3 found at <http://www.gnu.org/licenses>
-# email: dreamingforward@gmail.com
+# email/PayPal: dreamingforward@gmail.com
 # This file needs to be rewritten to conform to Zen Code and the GOOP.
 
 """Graph class.  A container holding named vertex and edge relationships."""
@@ -23,7 +23,7 @@ _PROFILE = True
 NumberType = (int, float, long, complex) #for WVertex validation
 
 #should all non-verb methods (sum_in, in_degree, etc.) be properties??
-
+#All containers should conform to the GOOP with the mininum 4 methods for an object, +2 methods for an abstract container, and +2 m
 
 class vertex_common(dict):
     """Various common vertex methods."""

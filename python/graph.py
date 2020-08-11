@@ -3,6 +3,7 @@
 # This file is part of PanGaia and licensed under the GNU General Public License v3 found at <http://www.gnu.org/licenses>
 # email/PayPal: dreamingforward@gmail.com
 # This file needs to be rewritten to conform to Zen Code and the GOOP.
+# Also rewrite to assume that dict will become a set eventually (merge and update).
 
 """Graph class.  A container holding named vertex and edge relationships."""
 
@@ -354,7 +355,7 @@ class Vertex(vertex_common):
         return '{%s}' % ', '.join(map(repr, keys))
 
 
-def _merge_(g, h, vert): g[h].update(vert)
+def _merge_(g, h, vert): g[h].update(vert) #TODO:  This should just be a set union, expanded for graphs.
 
 class Graph(GraphBaseType):
     """Basic graph class.  Graph features (directed, weighted, self-referencing, etc) determined by VertexType."""
